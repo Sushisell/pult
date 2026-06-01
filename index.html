@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Пульт ежедневных проверок</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero-card">
+        <div>
+          <p class="eyebrow">Ежедневный контроль</p>
+          <h1>Пульт управления команды</h1>
+          <p class="hero-text">
+            Команда каждый день отмечает критичные проверки, а пульт сохраняет факты в сводную таблицу для будущей управленческой диаграммы.
+          </p>
+        </div>
+        <div class="hero-score" id="hero-score" aria-label="Выполнено 0%">
+          <span class="score-icon">✓</span>
+          <strong>0%</strong>
+          <span>0 из 0 проверено</span>
+        </div>
+      </section>
+
+      <section class="toolbar" aria-label="Настройки отчёта">
+        <label>
+          Дата проверки
+          <input id="date-input" type="date" />
+        </label>
+        <label>
+          Ответственный
+          <input id="owner-input" type="text" placeholder="Имя сотрудника" />
+        </label>
+        <button class="secondary-button" id="save-button" type="button">💾 Сохранено автоматически</button>
+        <button id="export-button" type="button">⬇ Скачать CSV</button>
+      </section>
+
+      <section class="stats-grid" aria-label="Сводка дня">
+        <article class="stat-card success"><span>Проверено</span><strong id="done-count">0</strong></article>
+        <article class="stat-card danger"><span>Есть проблема</span><strong id="issue-count">0</strong></article>
+        <article class="stat-card muted"><span>Не проверено</span><strong id="skipped-count">0</strong></article>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Чек-лист на день</h2>
+          <p>Отмечайте статус, числовые метрики и комментарии — все изменения фиксируются локально в браузере.</p>
+        </div>
+        <div class="table-wrap">
+          <table class="check-table">
+            <thead>
+              <tr>
+                <th>№</th>
+                <th>Задача / метрика</th>
+                <th>Формат отчёта</th>
+                <th>Статус</th>
+                <th>Значение / комментарий</th>
+              </tr>
+            </thead>
+            <tbody id="checklist-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Сводная таблица</h2>
+          <p>Здесь накапливается история по датам. Следующий шаг — диаграмма для руководителя.</p>
+        </div>
+        <div class="summary-list" id="summary-list"></div>
+      </section>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
