@@ -1,4 +1,4 @@
-import { CHECKLIST, STATUS } from './checklist.js';
+import { CATEGORIES, CHECKLIST, STATUS } from './checklist.js';
 
 const STORAGE_KEY = 'pult.dailyChecks.v1';
 
@@ -65,12 +65,12 @@ export function getReportForDate(reports, date) {
 export function getCompletion(report) {
   const total = report.rows.length;
   const done = report.rows.filter((row) => row.status === 'done').length;
-  const issues = report.rows.filter((row) => row.status === 'issue').length;
+  const issues = report.rows.filter((row) => row.comment?.trim()).length;
   return {
     total,
     done,
     issues,
-    skipped: total - done - issues,
+    skipped: report.rows.filter((row) => row.status !== 'done').length,
     percent: total === 0 ? 0 : Math.round((done / total) * 100),
   };
 }
@@ -85,7 +85,7 @@ export function buildSummaryRows(reports) {
 }
 
 export function buildCsv(reports) {
-  const header = ['Дата', 'Ответственный', '№', 'Задача / метрика', 'Формат отчёта', 'Статус', 'Значение', 'Комментарий', 'Обновлено'];
+  const header = ['Дата', 'ФИО', 'Раздел', '№', 'Задача / метрика', 'Формат отчёта', 'Статус', 'Значение', 'Комментарий', 'Обновлено'];
   const rows = Object.values(reports)
     .sort((a, b) => a.date.localeCompare(b.date))
     .flatMap((report) => report.rows.map((row) => {
@@ -93,6 +93,7 @@ export function buildCsv(reports) {
       return [
         report.date,
         report.owner,
+        CATEGORIES.find((category) => category.id === item?.category)?.label ?? '',
         row.id,
         item?.metric ?? '',
         item?.reportFormat ?? '',

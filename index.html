@@ -9,51 +9,59 @@
   <body>
     <main class="app-shell">
       <section class="hero-card">
-        <div>
+        <div class="top-bar">
           <p class="eyebrow">Ежедневный контроль</p>
-          <h1>Пульт управления команды</h1>
-          <p class="hero-text">
-            Команда каждый день отмечает критичные проверки, а пульт сохраняет факты в сводную таблицу для будущей управленческой диаграммы.
-          </p>
+          <button class="secondary-button" id="save-button" type="button">💾 Автосохранение</button>
         </div>
-        <div class="hero-score" id="hero-score" aria-label="Выполнено 0%">
-          <span class="score-icon">✓</span>
-          <strong>0%</strong>
-          <span>0 из 0 проверено</span>
+        <div class="hero-layout">
+          <div>
+            <h1>Пульт управления команды</h1>
+            <p class="hero-text">
+              Выберите отдел, отметьте свои метрики как «проверено» или «не проверено» и сохраните ежедневную историю для руководителя.
+            </p>
+          </div>
+          <div class="hero-score" id="hero-score" aria-label="Выполнено 0%">
+            <span class="score-icon">✓</span>
+            <strong>0%</strong>
+            <span>0 из 0 проверено</span>
+          </div>
         </div>
       </section>
 
       <section class="toolbar" aria-label="Настройки отчёта">
         <label>
-          Дата проверки
+          Дата
           <input id="date-input" type="date" />
         </label>
         <label>
-          Ответственный
-          <input id="owner-input" type="text" placeholder="Имя сотрудника" />
+          ФИО
+          <input id="owner-input" type="text" placeholder="Фамилия Имя" />
         </label>
-        <button class="secondary-button" id="save-button" type="button">💾 Сохранено автоматически</button>
         <button id="export-button" type="button">⬇ Скачать CSV</button>
       </section>
 
+      <nav class="category-tabs" id="category-tabs" aria-label="Разделы проверки"></nav>
+
       <section class="stats-grid" aria-label="Сводка дня">
         <article class="stat-card success"><span>Проверено</span><strong id="done-count">0</strong></article>
-        <article class="stat-card danger"><span>Есть проблема</span><strong id="issue-count">0</strong></article>
+        <article class="stat-card danger"><span>С комментариями</span><strong id="issue-count">0</strong></article>
         <article class="stat-card muted"><span>Не проверено</span><strong id="skipped-count">0</strong></article>
       </section>
 
       <section class="panel">
         <div class="panel-header">
-          <h2>Чек-лист на день</h2>
-          <p>Отмечайте статус, числовые метрики и комментарии — все изменения фиксируются локально в браузере.</p>
+          <div>
+            <h2 id="active-category-title">Чек-лист на день</h2>
+            <p>Отмечайте статус «проверено / не проверено», числовые метрики и комментарии — все изменения фиксируются локально в браузере.</p>
+          </div>
+          <span class="panel-badge" id="active-category-count">0 из 0 проверено</span>
         </div>
         <div class="table-wrap">
           <table class="check-table">
             <thead>
               <tr>
                 <th>№</th>
-                <th>Задача / метрика</th>
-                <th>Формат отчёта</th>
+                <th>Метрика</th>
                 <th>Статус</th>
                 <th>Значение / комментарий</th>
               </tr>

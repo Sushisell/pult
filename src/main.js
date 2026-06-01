@@ -1,4 +1,4 @@
-import { CHECKLIST, STATUS } from './checklist.js';
+import { CATEGORIES, CHECKLIST, STATUS } from './checklist.js';
 import {
   buildCsv,
   buildSummaryRows,
@@ -14,6 +14,7 @@ const state = {
   reports: loadReports(),
   date: todayISO(),
   report: null,
+  activeCategory: CATEGORIES[0].id,
 };
 
 const elements = {
@@ -21,7 +22,10 @@ const elements = {
   ownerInput: document.querySelector('#owner-input'),
   saveButton: document.querySelector('#save-button'),
   exportButton: document.querySelector('#export-button'),
+  tabs: document.querySelector('#category-tabs'),
   checklistBody: document.querySelector('#checklist-body'),
+  activeCategoryTitle: document.querySelector('#active-category-title'),
+  activeCategoryCount: document.querySelector('#active-category-count'),
   summaryList: document.querySelector('#summary-list'),
   heroScore: document.querySelector('#hero-score'),
   doneCount: document.querySelector('#done-count'),
@@ -74,26 +78,75 @@ function render() {
   elements.doneCount.textContent = completion.done;
   elements.issueCount.textContent = completion.issues;
   elements.skippedCount.textContent = completion.skipped;
+  renderTabs();
   renderChecklist();
   renderSummary();
 }
 
+function renderTabs() {
+  elements.tabs.innerHTML = '';
+  for (const category of CATEGORIES) {
+    const completion = getCategoryCompletion(category.id);
+    const button = document.createElement('button');
+    button.className = 'tab-button';
+    button.type = 'button';
+    button.setAttribute('aria-pressed', String(category.id === state.activeCategory));
+    button.innerHTML = `
+      <span>${category.icon} ${category.label}</span>
+      <b>${completion.done}/${completion.total}</b>
+    `;
+    button.addEventListener('click', () => {
+      state.activeCategory = category.id;
+      render();
+    });
+    elements.tabs.append(button);
+  }
+}
+
 function renderChecklist() {
   elements.checklistBody.innerHTML = '';
-  for (const item of CHECKLIST) {
+  const category = CATEGORIES.find((entry) => entry.id === state.activeCategory) ?? CATEGORIES[0];
+  const items = CHECKLIST.filter((item) => item.category === category.id);
+  const completion = getCategoryCompletion(category.id);
+
+  elements.activeCategoryTitle.textContent = `${category.icon} ${category.label}`;
+  elements.activeCategoryCount.textContent = `${completion.done} из ${completion.total} проверено`;
+
+  for (const [index, item] of items.entries()) {
     const row = state.report.rows.find((entry) => entry.id === item.id);
     const tableRow = document.createElement('tr');
-    if (row.status === 'issue') tableRow.classList.add('has-issue');
+    if (row.status === 'done') tableRow.classList.add('is-done');
 
     tableRow.append(
-      createCell(String(item.id), 'number-cell'),
-      createCell(item.metric),
-      createCell(item.reportFormat),
+      createCell(String(index + 1), 'number-cell'),
+      createMetricCell(item),
       createStatusCell(item, row),
       createValueCell(item, row),
     );
     elements.checklistBody.append(tableRow);
   }
+}
+
+function getCategoryCompletion(categoryId) {
+  const itemIds = CHECKLIST.filter((item) => item.category === categoryId).map((item) => item.id);
+  const rows = state.report.rows.filter((row) => itemIds.includes(row.id));
+  const done = rows.filter((row) => row.status === 'done').length;
+  return {
+    total: rows.length,
+    done,
+    percent: rows.length === 0 ? 0 : Math.round((done / rows.length) * 100),
+  };
+}
+
+function createMetricCell(item) {
+  const cell = document.createElement('td');
+  const title = document.createElement('strong');
+  title.textContent = item.metric;
+  const format = document.createElement('span');
+  format.className = 'metric-format';
+  format.textContent = item.reportFormat;
+  cell.append(title, format);
+  return cell;
 }
 
 function createCell(text, className = '') {
@@ -105,16 +158,20 @@ function createCell(text, className = '') {
 
 function createStatusCell(item, row) {
   const cell = document.createElement('td');
-  const select = document.createElement('select');
+  const group = document.createElement('div');
+  group.className = 'status-toggle';
+
   for (const [value, label] of Object.entries(STATUS)) {
-    const option = document.createElement('option');
-    option.value = value;
-    option.textContent = label;
-    select.append(option);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'status-pill';
+    button.textContent = label;
+    button.setAttribute('aria-pressed', String(row.status === value));
+    button.addEventListener('click', () => updateRow(item.id, { status: value }));
+    group.append(button);
   }
-  select.value = row.status;
-  select.addEventListener('change', (event) => updateRow(item.id, { status: event.target.value }));
-  cell.append(select);
+
+  cell.append(group);
   return cell;
 }
 
@@ -166,7 +223,7 @@ function renderSummary() {
       </div>
       <div class="summary-metrics">
         <span>✓ ${report.completion.done} проверено</span>
-        <span>⚠ ${report.completion.issues} проблем</span>
+        <span>💬 ${report.completion.issues} комментариев</span>
         <b>${report.completion.percent}%</b>
       </div>
     `;
