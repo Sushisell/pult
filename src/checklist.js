@@ -1,104 +1,236 @@
+export const FREQUENCIES = {
+  daily: 'ежедневно',
+  weekly: 'еженедельно',
+  monthly: 'ежемесячно',
+};
+
 export const CATEGORIES = [
-  { id: 'hr', label: 'HR', icon: '👥' },
-  { id: 'franchise', label: 'Франчайзинг', icon: '🤝' },
-  { id: 'marketing', label: 'Маркетинг', icon: '📣' },
+  { id: 'daily', label: 'Ежедневно', icon: '📅' },
+  { id: 'weekly', label: 'Еженедельно', icon: '🗓️' },
+  { id: 'monthly', label: 'Ежемесячно', icon: '📆' },
 ];
 
-export const CHECKLIST = [
+export const INFO_ROWS = [
+  { fullName: 'Коваленко Марина Сергеевна', role: 'HR' },
+  { fullName: 'Иванова Анна Петровна', role: 'Франчайзинг' },
+  { fullName: 'Петрова Ольга Андреевна', role: 'Маркетинг' },
+];
+
+export const METRIC_SHEETS = [
   {
-    id: 'hr-1',
-    category: 'hr',
-    metric: 'Проверка работы карьерного сайта',
-    reportFormat: 'Форма отправляет лид, лиды приходят в CRM',
-    type: 'checkbox',
+    name: 'HR',
+    rows: [
+      {
+        frequency: 'ежедневно',
+        metric: 'Проверка работы карьерного сайта',
+        role: 'HR',
+        reportFormat: 'Форма отправляет лид, лиды приходят в CRM',
+        type: 'checkbox',
+      },
+      {
+        frequency: 'ежедневно',
+        metric: 'Проверка ЛК Avito',
+        role: 'HR',
+        reportFormat: 'Баланс, активные вакансии, обработка откликов рекрутерами',
+        type: 'checkbox',
+      },
+      {
+        frequency: 'ежедневно',
+        metric: 'Проверка ЛК hh',
+        role: 'HR',
+        reportFormat: 'Вакансии активны, поднятия по плану, баланс',
+        type: 'checkbox',
+      },
+      {
+        frequency: 'ежедневно',
+        metric: 'Ежедневный контроль индекса вежливости компании на HH',
+        role: 'HR',
+        reportFormat: 'Введите текущее значение индекса',
+        type: 'number',
+        placeholder: 'Например, 94',
+        suffix: '%',
+      },
+      {
+        frequency: 'еженедельно',
+        metric: 'Проверка динамики откликов и стоимости найма по каналам',
+        role: 'HR',
+        reportFormat: 'Краткий вывод по каналам и рискам',
+        type: 'checkboxWithText',
+        placeholder: 'Какие каналы требуют внимания?',
+      },
+      {
+        frequency: 'ежемесячно',
+        metric: 'Сводный отчёт по найму и текучести персонала',
+        role: 'HR',
+        reportFormat: 'Отчёт загружен и согласован',
+        type: 'checkbox',
+      },
+    ],
   },
   {
-    id: 'hr-2',
-    category: 'hr',
-    metric: 'Проверка ЛК Avito',
-    reportFormat: 'Баланс, активные вакансии, обработка откликов рекрутерами',
-    type: 'checkbox',
+    name: 'Франчайзинг',
+    rows: [
+      {
+        frequency: 'ежедневно',
+        metric: 'Новые заявки франчайзи разобраны и переданы ответственным',
+        role: 'Франчайзинг',
+        reportFormat: 'Проверено / не проверено',
+        type: 'checkbox',
+      },
+      {
+        frequency: 'ежедневно',
+        metric: 'Воронка франчайзинга обновлена: статусы, следующие шаги, даты касаний',
+        role: 'Франчайзинг',
+        reportFormat: 'Проверено / не проверено',
+        type: 'checkbox',
+      },
+      {
+        frequency: 'еженедельно',
+        metric: 'Партнёры с риском просрочки коммуникации отмечены в комментариях',
+        role: 'Франчайзинг',
+        reportFormat: 'Проверено / не проверено + комментарий',
+        type: 'checkboxWithText',
+        placeholder: 'Кого нужно дожать?',
+      },
+      {
+        frequency: 'ежемесячно',
+        metric: 'План открытия новых точек актуализирован',
+        role: 'Франчайзинг',
+        reportFormat: 'План обновлён, отклонения описаны',
+        type: 'checkboxWithText',
+        placeholder: 'Какие открытия под риском?',
+      },
+    ],
   },
   {
-    id: 'hr-3',
-    category: 'hr',
-    metric: 'Проверка ЛК hh',
-    reportFormat: 'Вакансии активны, поднятия по плану, баланс',
-    type: 'checkbox',
-  },
-  {
-    id: 'hr-4',
-    category: 'hr',
-    metric: 'Ежедневный контроль индекса вежливости компании на HH',
-    reportFormat: 'Введите текущее значение индекса',
-    type: 'number',
-    placeholder: 'Например, 94',
-    suffix: '%',
-  },
-  {
-    id: 'hr-5',
-    category: 'hr',
-    metric: 'Saby работает + плановые приказы дня проведены',
-    reportFormat: 'Отпуска, приёмы, увольнения',
-    type: 'checkbox',
-  },
-  {
-    id: 'hr-6',
-    category: 'hr',
-    metric: 'Проверка LMS',
-    reportFormat: 'Новички назначены на стартовый курс, активность идёт',
-    type: 'checkboxWithText',
-    placeholder: 'Кто не активен?',
-  },
-  {
-    id: 'fr-1',
-    category: 'franchise',
-    metric: 'Новые заявки франчайзи разобраны и переданы ответственным',
-    reportFormat: 'Проверено / не проверено',
-    type: 'checkbox',
-  },
-  {
-    id: 'fr-2',
-    category: 'franchise',
-    metric: 'Воронка франчайзинга обновлена: статусы, следующие шаги, даты касаний',
-    reportFormat: 'Проверено / не проверено',
-    type: 'checkbox',
-  },
-  {
-    id: 'fr-3',
-    category: 'franchise',
-    metric: 'Партнёры с риском просрочки коммуникации отмечены в комментариях',
-    reportFormat: 'Проверено / не проверено + комментарий',
-    type: 'checkboxWithText',
-    placeholder: 'Кого нужно дожать?',
-  },
-  {
-    id: 'mk-1',
-    category: 'marketing',
-    metric: 'Рекламные кабинеты активны, бюджеты и лимиты не остановили кампании',
-    reportFormat: 'Проверено / не проверено',
-    type: 'checkbox',
-  },
-  {
-    id: 'mk-2',
-    category: 'marketing',
-    metric: 'Лиды за день сверены с CRM и источниками трафика',
-    reportFormat: 'Число лидов + статус проверки',
-    type: 'number',
-    placeholder: 'Например, 128',
-    suffix: 'лидов',
-  },
-  {
-    id: 'mk-3',
-    category: 'marketing',
-    metric: 'Контент-план и публикации на сегодня готовы / опубликованы',
-    reportFormat: 'Проверено / не проверено',
-    type: 'checkbox',
+    name: 'Маркетинг',
+    rows: [
+      {
+        frequency: 'ежедневно',
+        metric: 'Рекламные кабинеты активны, бюджеты и лимиты не остановили кампании',
+        role: 'Маркетинг',
+        reportFormat: 'Проверено / не проверено',
+        type: 'checkbox',
+      },
+      {
+        frequency: 'ежедневно',
+        metric: 'Лиды за день сверены с CRM и источниками трафика',
+        role: 'Маркетинг',
+        reportFormat: 'Число лидов + статус проверки',
+        type: 'number',
+        placeholder: 'Например, 128',
+        suffix: 'лидов',
+      },
+      {
+        frequency: 'еженедельно',
+        metric: 'Контент-план и публикации на неделю готовы',
+        role: 'Маркетинг',
+        reportFormat: 'Проверено / не проверено',
+        type: 'checkbox',
+      },
+      {
+        frequency: 'ежемесячно',
+        metric: 'Отчёт по ROMI и эффективности каналов подготовлен',
+        role: 'Маркетинг',
+        reportFormat: 'Отчёт с выводами и действиями',
+        type: 'checkboxWithText',
+        placeholder: 'Ключевые выводы месяца',
+      },
+    ],
   },
 ];
+
+export const CHECKLIST = createChecklist(METRIC_SHEETS);
 
 export const STATUS = {
   done: 'Всё ок',
   issue: 'Найдены проблемы',
   skipped: 'Не проверено',
 };
+
+export function createCatalog({ infoRows = INFO_ROWS, metricSheets = METRIC_SHEETS } = {}) {
+  return {
+    infoRows: normalizeInfoRows(infoRows),
+    metricSheets: normalizeMetricSheets(metricSheets),
+    checklist: createChecklist(metricSheets),
+  };
+}
+
+export function createChecklist(metricSheets = METRIC_SHEETS) {
+  return normalizeMetricSheets(metricSheets).flatMap((sheet) => sheet.rows.map((row, index) => ({
+    ...row,
+    id: row.id || `${slugify(sheet.name)}-${index + 1}`,
+    category: getFrequencyCategory(row.frequency),
+    sourceSheet: sheet.name,
+    sourceRow: row.sourceRow ?? index + 2,
+  })));
+}
+
+export function findEmployeeByFullName(fullName, infoRows = INFO_ROWS) {
+  const normalizedFullName = normalizeText(fullName);
+  if (!normalizedFullName) return null;
+  return infoRows.find((row) => normalizeText(row.fullName) === normalizedFullName) ?? null;
+}
+
+export function getMetricsForRole(role, checklist = CHECKLIST) {
+  const normalizedRole = normalizeText(role);
+  if (!normalizedRole) return [];
+  return checklist.filter((item) => normalizeText(item.role) === normalizedRole);
+}
+
+export function groupMetricsByFrequency(metrics) {
+  return CATEGORIES.map((category) => ({
+    ...category,
+    items: metrics.filter((item) => item.category === category.id),
+  })).filter((group) => group.items.length > 0);
+}
+
+function normalizeInfoRows(infoRows) {
+  return infoRows
+    .map((row) => ({
+      fullName: String(row.fullName ?? row.name ?? row['ФИО'] ?? '').trim(),
+      role: String(row.role ?? row['Роль'] ?? '').trim(),
+    }))
+    .filter((row) => row.fullName && row.role);
+}
+
+function normalizeMetricSheets(metricSheets) {
+  return metricSheets
+    .map((sheet) => ({
+      name: String(sheet.name ?? sheet.title ?? '').trim(),
+      rows: normalizeMetricRows(sheet.rows ?? []),
+    }))
+    .filter((sheet) => sheet.name && sheet.rows.length > 0);
+}
+
+function normalizeMetricRows(rows) {
+  return rows
+    .map((row) => ({
+      frequency: String(row.frequency ?? row['Периодичность'] ?? '').trim(),
+      metric: String(row.metric ?? row['Метрика'] ?? '').trim(),
+      role: String(row.role ?? row['Роль'] ?? '').trim(),
+      reportFormat: String(row.reportFormat ?? row['Формат отчёта'] ?? 'Проверено / не проверено').trim(),
+      type: String(row.type ?? row['Тип'] ?? 'checkbox').trim(),
+      placeholder: row.placeholder ?? row['Плейсхолдер'] ?? undefined,
+      suffix: row.suffix ?? row['Суффикс'] ?? undefined,
+      sourceRow: row.sourceRow ?? row['Строка'] ?? undefined,
+    }))
+    .filter((row) => row.frequency && row.metric && row.role);
+}
+
+function getFrequencyCategory(frequency) {
+  const normalizedFrequency = normalizeText(frequency);
+  const entry = Object.entries(FREQUENCIES).find(([, label]) => normalizeText(label) === normalizedFrequency);
+  return entry?.[0] ?? 'daily';
+}
+
+function normalizeText(value) {
+  return String(value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function slugify(value) {
+  return normalizeText(value)
+    .replaceAll('ё', 'е')
+    .replace(/[^a-zа-я0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}

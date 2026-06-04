@@ -329,3 +329,41 @@ textarea {
   border-color: #9aa0ad;
   background: #9aa0ad;
 }
+
+.frequency-group {
+  display: grid;
+  gap: 12px;
+}
+
+.frequency-group h3 {
+  margin: 0;
+  color: #15162c;
+  font-size: 0.92rem;
+  font-weight: 850;
+}
+
+.metric-source {
+  display: block;
+  margin-top: 6px;
+  color: #a0a4b1;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.control-stack {
+  display: grid;
+  gap: 10px;
+  min-width: 260px;
+}
+
+.empty {
+  margin: 0;
+  color: #838796;
+  line-height: 1.45;
+}
+
+@media (max-width: 760px) {
+  .control-stack {
+    min-width: 0;
+  }
+}

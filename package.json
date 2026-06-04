@@ -7,6 +7,6 @@
   "scripts": {
     "start": "python3 -m http.server 4173",
     "test": "node --test tests/*.test.js",
-    "check": "node --check src/main.js && node --check src/storage.js && node --check src/checklist.js"
+    "check": "node --check src/main.js && node --check src/storage.js && node --check src/checklist.js && node --check src/data-source.js && node --check src/config.js && node --check data/google-apps-script.js"
   }
 }
