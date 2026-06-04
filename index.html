@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Пульт управления Сушиселл</title>
-    <link rel="stylesheet" href="/src/styles.css" />
+    <link rel="stylesheet" href="./src/styles.css" />
   </head>
   <body>
     <main class="app-shell" id="pult-main">
@@ -41,7 +41,20 @@
         <button id="export-button" type="button">⬇ Скачать CSV</button>
       </section>
 
-      <nav class="category-tabs" id="category-tabs" aria-label="Вкладки отделов" role="tablist"></nav>
+      <nav class="category-tabs" id="category-tabs" aria-label="Вкладки отделов" role="tablist">
+        <button class="tab-button" type="button" role="tab" aria-selected="true">
+          <span class="tab-label"><span class="tab-dot" aria-hidden="true"></span>👥 HR</span>
+          <b>0/6</b>
+        </button>
+        <button class="tab-button" type="button" role="tab" aria-selected="false">
+          <span class="tab-label"><span class="tab-dot" aria-hidden="true"></span>🤝 Франчайзинг</span>
+          <b>0/3</b>
+        </button>
+        <button class="tab-button" type="button" role="tab" aria-selected="false">
+          <span class="tab-label"><span class="tab-dot" aria-hidden="true"></span>📣 Маркетинг</span>
+          <b>0/3</b>
+        </button>
+      </nav>
 
       <section class="stats-grid" aria-label="Сводка дня">
         <article class="stat-card success"><span>Проверено</span><strong id="done-count">0</strong></article>
@@ -80,6 +93,6 @@
         <div class="summary-list" id="summary-list"></div>
       </section>
     </main>
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="./src/main.js"></script>
   </body>
 </html>
