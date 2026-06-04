@@ -36,6 +36,15 @@ const elements = {
 state.report = getReportForDate(state.reports, state.date);
 elements.dateInput.value = state.date;
 
+
+function ensureOwnerOption(owner) {
+  if (!owner || Array.from(elements.ownerInput.options).some((option) => option.value === owner)) return;
+  const option = document.createElement('option');
+  option.value = owner;
+  option.textContent = owner;
+  elements.ownerInput.append(option);
+}
+
 function persist(nextReport) {
   state.report = nextReport;
   state.reports = upsertReport(state.reports, nextReport);
@@ -68,6 +77,7 @@ function exportCsv() {
 
 function render() {
   const completion = getCompletion(state.report);
+  ensureOwnerOption(state.report.owner);
   elements.ownerInput.value = state.report.owner;
   elements.heroScore.setAttribute('aria-label', `Выполнено ${completion.percent}%`);
   elements.heroScore.innerHTML = `
@@ -85,25 +95,6 @@ function render() {
 
 function renderTabs() {
   elements.tabs.innerHTML = '';
-  for (const category of CATEGORIES) {
-    const completion = getCategoryCompletion(category.id);
-    const button = document.createElement('button');
-    button.className = 'tab-button';
-    button.type = 'button';
-    const isActive = category.id === state.activeCategory;
-    button.setAttribute('role', 'tab');
-    button.setAttribute('aria-selected', String(isActive));
-    button.setAttribute('aria-pressed', String(isActive));
-    button.innerHTML = `
-      <span class="tab-label"><span class="tab-dot" aria-hidden="true"></span>${category.icon} ${category.label}</span>
-      <b>${completion.done}/${completion.total}</b>
-    `;
-    button.addEventListener('click', () => {
-      state.activeCategory = category.id;
-      render();
-    });
-    elements.tabs.append(button);
-  }
 }
 
 function renderChecklist() {
@@ -112,21 +103,12 @@ function renderChecklist() {
   const items = CHECKLIST.filter((item) => item.category === category.id);
   const completion = getCategoryCompletion(category.id);
 
-  elements.activeCategoryTitle.textContent = `${category.icon} ${category.label}`;
+  elements.activeCategoryTitle.textContent = 'Ежедневные проверки';
   elements.activeCategoryCount.textContent = `${completion.done} из ${completion.total} проверено`;
 
-  for (const [index, item] of items.entries()) {
+  for (const item of items) {
     const row = state.report.rows.find((entry) => entry.id === item.id);
-    const tableRow = document.createElement('tr');
-    if (row.status === 'done') tableRow.classList.add('is-done');
-
-    tableRow.append(
-      createCell(String(index + 1), 'number-cell'),
-      createMetricCell(item),
-      createStatusCell(item, row),
-      createValueCell(item, row),
-    );
-    elements.checklistBody.append(tableRow);
+    elements.checklistBody.append(createChecklistCard(item, row));
   }
 }
 
@@ -141,67 +123,63 @@ function getCategoryCompletion(categoryId) {
   };
 }
 
+function createChecklistCard(item, row) {
+  const card = document.createElement('article');
+  card.className = 'check-row';
+  if (row.status === 'done') card.classList.add('is-done');
+  if (row.status === 'issue') card.classList.add('is-issue');
+  if (item.type === 'number') card.classList.add('is-number');
+
+  card.append(createMetricCell(item), createControlCell(item, row));
+  return card;
+}
+
 function createMetricCell(item) {
-  const cell = document.createElement('td');
+  const wrapper = document.createElement('div');
   const title = document.createElement('strong');
+  title.className = 'metric-title';
   title.textContent = item.metric;
   const format = document.createElement('span');
   format.className = 'metric-format';
   format.textContent = item.reportFormat;
-  cell.append(title, format);
-  return cell;
+  wrapper.append(title, format);
+  return wrapper;
 }
 
-function createCell(text, className = '') {
-  const cell = document.createElement('td');
-  if (className) cell.className = className;
-  cell.textContent = text;
-  return cell;
-}
-
-function createStatusCell(item, row) {
-  const cell = document.createElement('td');
-  const group = document.createElement('div');
-  group.className = 'status-toggle';
-
-  for (const [value, label] of Object.entries(STATUS)) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'status-pill';
-    button.textContent = label;
-    button.setAttribute('aria-pressed', String(row.status === value));
-    button.addEventListener('click', () => updateRow(item.id, { status: value }));
-    group.append(button);
-  }
-
-  cell.append(group);
-  return cell;
-}
-
-function createValueCell(item, row) {
-  const cell = document.createElement('td');
-
+function createControlCell(item, row) {
   if (item.type === 'number') {
     const wrapper = document.createElement('div');
     wrapper.className = 'inline-field';
     const input = document.createElement('input');
     input.type = 'number';
     input.value = row.value;
-    input.placeholder = item.placeholder;
+    input.placeholder = '0';
     input.addEventListener('input', (event) => updateRow(item.id, { value: event.target.value }));
     const suffix = document.createElement('span');
     suffix.textContent = item.suffix;
     wrapper.append(input, suffix);
-    cell.append(wrapper);
-    return cell;
+    return wrapper;
   }
 
-  const textarea = document.createElement('textarea');
-  textarea.value = row.comment;
-  textarea.placeholder = item.placeholder || 'Комментарий, если есть отклонение';
-  textarea.addEventListener('input', (event) => updateRow(item.id, { comment: event.target.value }));
-  cell.append(textarea);
-  return cell;
+  const group = document.createElement('div');
+  group.className = 'status-toggle';
+
+  for (const [value, label] of Object.entries(STATUS)) {
+    const option = document.createElement('label');
+    option.className = `status-option is-${value}`;
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = `status-${item.id}`;
+    input.value = value;
+    input.checked = row.status === value;
+    input.addEventListener('change', () => updateRow(item.id, { status: value }));
+    const text = document.createElement('span');
+    text.textContent = label;
+    option.append(input, text);
+    group.append(option);
+  }
+
+  return group;
 }
 
 function renderSummary() {
