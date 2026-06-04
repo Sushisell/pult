@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { readFile } from 'node:fs/promises';
 import { loadCatalog } from '../src/data-source.js';
 import { buildCsv, createEmptyReport, getCompletion, getReportForDate, upsertReport } from '../src/storage.js';
 import { CHECKLIST, createCatalog, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from '../src/checklist.js';
+import { APP_VERSION } from '../src/version.js';
 
 describe('daily report storage helpers', () => {
   it('creates a complete empty report for a selected date', () => {
@@ -88,5 +90,18 @@ describe('daily report storage helpers', () => {
     assert.match(csv, /Дата,ФИО,Роль,Периодичность,Лист/);
     assert.match(csv, /Коваленко Марина Сергеевна,HR,Ежедневно,HR/);
     assert.match(csv, /Всё ок/);
+  });
+});
+
+describe('application version', () => {
+  it('keeps package, header fallback and runtime version in sync', async () => {
+    const [packageJson, indexHtml] = await Promise.all([
+      readFile(new URL('../package.json', import.meta.url), 'utf8'),
+      readFile(new URL('../index.html', import.meta.url), 'utf8'),
+    ]);
+    const packageVersion = JSON.parse(packageJson).version;
+
+    assert.equal(APP_VERSION, packageVersion);
+    assert.match(indexHtml, new RegExp(`id="app-version"[^>]*>v${packageVersion}</span>`));
   });
 });

@@ -1,5 +1,6 @@
 import { INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from './checklist.js';
 import { loadCatalog } from './data-source.js';
+import { APP_VERSION } from './version.js';
 import {
   buildCsv,
   buildSummaryRows,
@@ -22,6 +23,7 @@ const state = {
 };
 
 const elements = {
+  appVersion: document.querySelector('#app-version'),
   dateInput: document.querySelector('#date-input'),
   ownerInput: document.querySelector('#owner-input'),
   ownerOptions: document.querySelector('#owner-options'),
@@ -40,6 +42,7 @@ const elements = {
 
 state.report = getReportForDate(state.reports, state.date, state.catalog.checklist, getDefaultOwner());
 elements.dateInput.value = state.date;
+if (elements.appVersion) elements.appVersion.textContent = `v${APP_VERSION}`;
 
 function ensureOwnerOption(owner) {
   if (!owner || !elements.ownerOptions) return;
