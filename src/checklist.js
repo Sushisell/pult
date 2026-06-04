@@ -175,7 +175,7 @@ export function findEmployeeByFullName(fullName, infoRows = INFO_ROWS) {
 export function getMetricsForRole(role, checklist = CHECKLIST) {
   const normalizedRole = normalizeText(role);
   if (!normalizedRole) return [];
-  return checklist.filter((item) => normalizeText(item.role) === normalizedRole);
+  return checklist.filter((item) => roleMatches(normalizedRole, item.role));
 }
 
 export function groupMetricsByFrequency(metrics) {
@@ -183,6 +183,19 @@ export function groupMetricsByFrequency(metrics) {
     ...category,
     items: metrics.filter((item) => item.category === category.id),
   })).filter((group) => group.items.length > 0);
+}
+
+
+function roleMatches(normalizedRole, metricRole) {
+  const metricRoles = splitRoleAliases(metricRole);
+  return metricRoles.includes(normalizedRole);
+}
+
+function splitRoleAliases(role) {
+  return normalizeText(role)
+    .split(/[,;/|]+|\s+и\s+|\s+или\s+/u)
+    .map((part) => part.trim())
+    .filter(Boolean);
 }
 
 function normalizeInfoRows(infoRows) {

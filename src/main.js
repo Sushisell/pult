@@ -26,7 +26,6 @@ const elements = {
   appVersion: document.querySelector('#app-version'),
   dateInput: document.querySelector('#date-input'),
   ownerInput: document.querySelector('#owner-input'),
-  ownerOptions: document.querySelector('#owner-options'),
   saveButton: document.querySelector('#save-button'),
   exportButton: document.querySelector('#export-button'),
   tabs: document.querySelector('#category-tabs'),
@@ -45,11 +44,12 @@ elements.dateInput.value = state.date;
 if (elements.appVersion) elements.appVersion.textContent = `v${APP_VERSION}`;
 
 function ensureOwnerOption(owner) {
-  if (!owner || !elements.ownerOptions) return;
-  if (Array.from(elements.ownerOptions.options).some((option) => option.value === owner)) return;
+  if (!owner || !elements.ownerInput) return;
+  if (Array.from(elements.ownerInput.options).some((option) => option.value === owner)) return;
   const option = document.createElement('option');
   option.value = owner;
-  elements.ownerOptions.append(option);
+  option.textContent = owner;
+  elements.ownerInput.append(option);
 }
 
 function persist(nextReport) {
@@ -267,7 +267,7 @@ elements.dateInput.addEventListener('change', (event) => {
   render();
 });
 
-elements.ownerInput.addEventListener('input', (event) => updateReport({ owner: event.target.value }));
+elements.ownerInput.addEventListener('change', (event) => updateReport({ owner: event.target.value }));
 elements.saveButton.addEventListener('click', () => persist(state.report));
 elements.exportButton.addEventListener('click', exportCsv);
 
@@ -276,9 +276,9 @@ function getDefaultOwner() {
 }
 
 function refreshOwnerOptions() {
-  if (!elements.ownerOptions) return;
-  elements.ownerOptions.innerHTML = '';
+  elements.ownerInput.innerHTML = '';
   for (const employee of state.catalog.infoRows) ensureOwnerOption(employee.fullName);
+  ensureOwnerOption(state.report.owner);
 }
 
 async function hydrateCatalog() {

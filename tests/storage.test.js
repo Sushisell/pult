@@ -43,6 +43,25 @@ describe('daily report storage helpers', () => {
     assert.ok(groups[0].items.every((item) => item.category === 'daily'));
   });
 
+  it('matches metrics when a Google Sheet role cell contains multiple aliases', () => {
+    const catalog = createCatalog({
+      infoRows: [{ fullName: 'Гелемей Полина', role: 'HRD' }],
+      metricSheets: [{
+        name: 'Пример заполнения',
+        rows: [
+          { frequency: '1', metric: 'Проверка дашборда', role: 'HRD / вышестоящий руководитель' },
+          { frequency: '1', metric: 'Эскалация', role: 'Эскалация (если не сделано)' },
+        ],
+      }],
+    });
+
+    const employee = findEmployeeByFullName('Гелемей Полина', catalog.infoRows);
+    const metrics = getMetricsForRole(employee.role, catalog.checklist);
+
+    assert.equal(metrics.length, 1);
+    assert.equal(metrics[0].metric, 'Проверка дашборда');
+  });
+
   it('builds a catalog from external workbook data', () => {
     const catalog = createCatalog({
       infoRows: [{ fullName: 'Реальный Сотрудник', role: 'Операции' }],
