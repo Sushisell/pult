@@ -90,9 +90,12 @@ function renderTabs() {
     const button = document.createElement('button');
     button.className = 'tab-button';
     button.type = 'button';
-    button.setAttribute('aria-pressed', String(category.id === state.activeCategory));
+    const isActive = category.id === state.activeCategory;
+    button.setAttribute('role', 'tab');
+    button.setAttribute('aria-selected', String(isActive));
+    button.setAttribute('aria-pressed', String(isActive));
     button.innerHTML = `
-      <span>${category.icon} ${category.label}</span>
+      <span class="tab-label"><span class="tab-dot" aria-hidden="true"></span>${category.icon} ${category.label}</span>
       <b>${completion.done}/${completion.total}</b>
     `;
     button.addEventListener('click', () => {
