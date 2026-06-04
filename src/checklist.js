@@ -2,8 +2,6 @@ export const CATEGORIES = [
   { id: 'hr', label: 'HR', icon: '👥' },
   { id: 'franchise', label: 'Франчайзинг', icon: '🤝' },
   { id: 'marketing', label: 'Маркетинг', icon: '📣' },
-  { id: 'operations', label: 'Операционка', icon: '⚙️' },
-  { id: 'oks', label: 'ОКС', icon: '🛠️' },
 ];
 
 export const CHECKLIST = [
@@ -96,50 +94,6 @@ export const CHECKLIST = [
     metric: 'Контент-план и публикации на сегодня готовы / опубликованы',
     reportFormat: 'Проверено / не проверено',
     type: 'checkbox',
-  },
-  {
-    id: 'op-1',
-    category: 'operations',
-    metric: 'Открытие смен / точек прошло без критичных отклонений',
-    reportFormat: 'Проверено / не проверено',
-    type: 'checkbox',
-  },
-  {
-    id: 'op-2',
-    category: 'operations',
-    metric: 'Критичные операционные задачи дня назначены ответственным',
-    reportFormat: 'Проверено / не проверено',
-    type: 'checkbox',
-  },
-  {
-    id: 'op-3',
-    category: 'operations',
-    metric: 'Инциденты и просрочки зафиксированы в комментариях',
-    reportFormat: 'Проверено / не проверено + комментарий',
-    type: 'checkboxWithText',
-    placeholder: 'Что требует внимания?',
-  },
-  {
-    id: 'oks-1',
-    category: 'oks',
-    metric: 'Заявки ОКС по аварийным вопросам просмотрены и распределены',
-    reportFormat: 'Проверено / не проверено',
-    type: 'checkbox',
-  },
-  {
-    id: 'oks-2',
-    category: 'oks',
-    metric: 'Ремонтные / строительные работы на сегодня сверены с планом',
-    reportFormat: 'Проверено / не проверено',
-    type: 'checkbox',
-  },
-  {
-    id: 'oks-3',
-    category: 'oks',
-    metric: 'Проблемные объекты и блокеры внесены в комментарии',
-    reportFormat: 'Проверено / не проверено + комментарий',
-    type: 'checkboxWithText',
-    placeholder: 'Объект, проблема, следующий шаг',
   },
 ];
 

@@ -3,21 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Пульт ежедневных проверок</title>
+    <title>Пульт управления Сушиселл</title>
     <link rel="stylesheet" href="/src/styles.css" />
   </head>
   <body>
-    <main class="app-shell">
+    <main class="app-shell" id="pult-main">
+      <a class="workspace-link" href="#pult-main" aria-label="Общая ссылка на пульт управления Сушиселл">Пульт управления Сушиселл</a>
       <section class="hero-card">
         <div class="top-bar">
-          <p class="eyebrow">Ежедневный контроль</p>
+          <p class="eyebrow">Общая ссылка</p>
           <button class="secondary-button" id="save-button" type="button">💾 Автосохранение</button>
         </div>
         <div class="hero-layout">
           <div>
-            <h1>Пульт управления команды</h1>
+            <h1>Пульт управления Сушиселл</h1>
             <p class="hero-text">
-              Выберите отдел, отметьте свои метрики как «проверено» или «не проверено» и сохраните ежедневную историю для руководителя.
+              Одна общая страница для ежедневного контроля. Переключайтесь между вкладками HR, франчайзинг и маркетинг как между вкладками браузера.
             </p>
           </div>
           <div class="hero-score" id="hero-score" aria-label="Выполнено 0%">
@@ -40,7 +41,7 @@
         <button id="export-button" type="button">⬇ Скачать CSV</button>
       </section>
 
-      <nav class="category-tabs" id="category-tabs" aria-label="Разделы проверки"></nav>
+      <nav class="category-tabs" id="category-tabs" aria-label="Вкладки отделов" role="tablist"></nav>
 
       <section class="stats-grid" aria-label="Сводка дня">
         <article class="stat-card success"><span>Проверено</span><strong id="done-count">0</strong></article>

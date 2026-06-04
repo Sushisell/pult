@@ -2,7 +2,7 @@
   "name": "team-control-panel",
   "version": "0.1.0",
   "private": true,
-  "description": "Ежедневный пульт управления для проверки операционных метрик команды.",
+  "description": "Общая страница «Пульт управления Сушиселл» с вкладками HR, франчайзинга и маркетинга.",
   "type": "module",
   "scripts": {
     "start": "python3 -m http.server 4173",
