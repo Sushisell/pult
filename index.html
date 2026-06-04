@@ -7,91 +7,48 @@
     <link rel="stylesheet" href="./src/styles.css" />
   </head>
   <body>
+    <header class="app-header" aria-label="Шапка пульта">
+      <a class="brand" href="#pult-main" aria-label="Пульт управления Сушиселл">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>Пульт управления Сушиселл</span>
+      </a>
+    </header>
+
     <main class="app-shell" id="pult-main">
-      <a class="workspace-link" href="#pult-main" aria-label="Общая ссылка на пульт управления Сушиселл">Пульт управления Сушиселл</a>
-      <section class="hero-card">
-        <div class="top-bar">
-          <p class="eyebrow">Общая ссылка</p>
-          <button class="secondary-button" id="save-button" type="button">💾 Автосохранение</button>
-        </div>
-        <div class="hero-layout">
-          <div>
-            <h1>Пульт управления Сушиселл</h1>
-            <p class="hero-text">
-              Одна общая страница для ежедневного контроля. Переключайтесь между вкладками HR, франчайзинг и маркетинг как между вкладками браузера.
-            </p>
-          </div>
-          <div class="hero-score" id="hero-score" aria-label="Выполнено 0%">
-            <span class="score-icon">✓</span>
-            <strong>0%</strong>
-            <span>0 из 0 проверено</span>
-          </div>
+      <section class="panel ident-panel" aria-labelledby="ident-title">
+        <h1 id="ident-title">Идентификация</h1>
+        <div class="toolbar" aria-label="Настройки отчёта">
+          <label>
+            Выбрать дату
+            <input id="date-input" type="date" />
+          </label>
+          <label>
+            Выбрать ФИО
+            <select id="owner-input">
+              <option value="Коваленко Марина Сергеевна">Коваленко Марина Сергеевна</option>
+              <option value="Иванова Анна Петровна">Иванова Анна Петровна</option>
+              <option value="Петрова Ольга Андреевна">Петрова Ольга Андреевна</option>
+            </select>
+          </label>
         </div>
       </section>
 
-      <section class="toolbar" aria-label="Настройки отчёта">
-        <label>
-          Дата
-          <input id="date-input" type="date" />
-        </label>
-        <label>
-          ФИО
-          <input id="owner-input" type="text" placeholder="Фамилия Имя" />
-        </label>
-        <button id="export-button" type="button">⬇ Скачать CSV</button>
-      </section>
-
-      <nav class="category-tabs" id="category-tabs" aria-label="Вкладки отделов" role="tablist">
-        <button class="tab-button" type="button" role="tab" aria-selected="true">
-          <span class="tab-label"><span class="tab-dot" aria-hidden="true"></span>👥 HR</span>
-          <b>0/6</b>
-        </button>
-        <button class="tab-button" type="button" role="tab" aria-selected="false">
-          <span class="tab-label"><span class="tab-dot" aria-hidden="true"></span>🤝 Франчайзинг</span>
-          <b>0/3</b>
-        </button>
-        <button class="tab-button" type="button" role="tab" aria-selected="false">
-          <span class="tab-label"><span class="tab-dot" aria-hidden="true"></span>📣 Маркетинг</span>
-          <b>0/3</b>
-        </button>
-      </nav>
-
-      <section class="stats-grid" aria-label="Сводка дня">
-        <article class="stat-card success"><span>Проверено</span><strong id="done-count">0</strong></article>
-        <article class="stat-card danger"><span>С комментариями</span><strong id="issue-count">0</strong></article>
-        <article class="stat-card muted"><span>Не проверено</span><strong id="skipped-count">0</strong></article>
-      </section>
-
-      <section class="panel">
+      <section class="panel checks-panel" aria-labelledby="active-category-title">
         <div class="panel-header">
-          <div>
-            <h2 id="active-category-title">Чек-лист на день</h2>
-            <p>Отмечайте статус «проверено / не проверено», числовые метрики и комментарии — все изменения фиксируются локально в браузере.</p>
-          </div>
-          <span class="panel-badge" id="active-category-count">0 из 0 проверено</span>
+          <h2 id="active-category-title">Ежедневные проверки</h2>
+          <span class="visually-hidden" id="active-category-count">0 из 0 проверено</span>
         </div>
-        <div class="table-wrap">
-          <table class="check-table">
-            <thead>
-              <tr>
-                <th>№</th>
-                <th>Метрика</th>
-                <th>Статус</th>
-                <th>Значение / комментарий</th>
-              </tr>
-            </thead>
-            <tbody id="checklist-body"></tbody>
-          </table>
-        </div>
+        <div class="checklist-list" id="checklist-body"></div>
+        <button class="save-button" id="save-button" type="button">Сохранить результаты</button>
       </section>
 
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Сводная таблица</h2>
-          <p>Здесь накапливается история по датам. Следующий шаг — диаграмма для руководителя.</p>
-        </div>
-        <div class="summary-list" id="summary-list"></div>
-      </section>
+      <button class="visually-hidden" id="export-button" type="button" aria-hidden="true" tabindex="-1">Скачать CSV</button>
+      <div class="visually-hidden" id="category-tabs" aria-hidden="true"></div>
+      <div class="visually-hidden" id="summary-list" aria-hidden="true"></div>
+      <div class="visually-hidden" id="hero-score" aria-hidden="true"></div>
+      <span class="visually-hidden" id="done-count">0</span>
+      <span class="visually-hidden" id="issue-count">0</span>
+      <span class="visually-hidden" id="skipped-count">0</span>
     </main>
     <script type="module" src="./src/main.js"></script>
   </body>

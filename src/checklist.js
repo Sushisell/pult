@@ -8,29 +8,29 @@ export const CHECKLIST = [
   {
     id: 'hr-1',
     category: 'hr',
-    metric: 'Карьерный сайт: форма отправляет лид, лиды приходят в CRM',
-    reportFormat: 'Проверено / не проверено',
+    metric: 'Проверка работы карьерного сайта',
+    reportFormat: 'Форма отправляет лид, лиды приходят в CRM',
     type: 'checkbox',
   },
   {
     id: 'hr-2',
     category: 'hr',
-    metric: 'ЛК Avito: баланс, активные вакансии, отклики обработаны рекрутерами',
-    reportFormat: 'Проверено / не проверено',
+    metric: 'Проверка ЛК Avito',
+    reportFormat: 'Баланс, активные вакансии, обработка откликов рекрутерами',
     type: 'checkbox',
   },
   {
     id: 'hr-3',
     category: 'hr',
-    metric: 'ЛК hh: вакансии активны, поднятия по плану, баланс под контролем',
-    reportFormat: 'Проверено / не проверено',
+    metric: 'Проверка ЛК hh',
+    reportFormat: 'Вакансии активны, поднятия по плану, баланс',
     type: 'checkbox',
   },
   {
     id: 'hr-4',
     category: 'hr',
-    metric: 'Индекс вежливости компании на HH',
-    reportFormat: 'Число + статус проверки',
+    metric: 'Ежедневный контроль индекса вежливости компании на HH',
+    reportFormat: 'Введите текущее значение индекса',
     type: 'number',
     placeholder: 'Например, 94',
     suffix: '%',
@@ -38,15 +38,15 @@ export const CHECKLIST = [
   {
     id: 'hr-5',
     category: 'hr',
-    metric: 'Saby работает, приказы дня проведены: отпуска, приёмы, увольнения',
-    reportFormat: 'Проверено / не проверено',
+    metric: 'Saby работает + плановые приказы дня проведены',
+    reportFormat: 'Отпуска, приёмы, увольнения',
     type: 'checkbox',
   },
   {
     id: 'hr-6',
     category: 'hr',
-    metric: 'LMS: новички назначены на стартовый курс, активность идёт',
-    reportFormat: 'Проверено / не проверено + комментарий',
+    metric: 'Проверка LMS',
+    reportFormat: 'Новички назначены на стартовый курс, активность идёт',
     type: 'checkboxWithText',
     placeholder: 'Кто не активен?',
   },
@@ -98,6 +98,7 @@ export const CHECKLIST = [
 ];
 
 export const STATUS = {
-  done: 'Проверено',
+  done: 'Всё ок',
+  issue: 'Найдены проблемы',
   skipped: 'Не проверено',
 };

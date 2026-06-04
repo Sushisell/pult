@@ -21,7 +21,7 @@ export function createEmptyRow(item) {
 export function createEmptyReport(date = todayISO()) {
   return {
     date,
-    owner: '',
+    owner: 'Коваленко Марина Сергеевна',
     rows: CHECKLIST.map(createEmptyRow),
   };
 }
@@ -65,7 +65,7 @@ export function getReportForDate(reports, date) {
 export function getCompletion(report) {
   const total = report.rows.length;
   const done = report.rows.filter((row) => row.status === 'done').length;
-  const issues = report.rows.filter((row) => row.comment?.trim()).length;
+  const issues = report.rows.filter((row) => row.status === 'issue' || row.comment?.trim()).length;
   return {
     total,
     done,

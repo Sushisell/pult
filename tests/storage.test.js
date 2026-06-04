@@ -37,6 +37,6 @@ describe('daily report storage helpers', () => {
 
     assert.match(csv, /Дата,ФИО,Раздел/);
     assert.match(csv, /Иван/);
-    assert.match(csv, /Проверено/);
+    assert.match(csv, /Всё ок/);
   });
 });
