@@ -206,10 +206,22 @@ textarea:focus {
   font-weight: 850;
 }
 
-.metric-format {
+.metric-format,
+.metric-goal {
   display: block;
   color: #838796;
   font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.metric-goal {
+  margin-top: 3px;
+}
+
+.field-error {
+  color: #b33d57;
+  font-size: 0.74rem;
+  font-weight: 750;
   line-height: 1.35;
 }
 
@@ -281,13 +293,21 @@ textarea {
   resize: vertical;
 }
 
+.save-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 26px;
+}
+
 .save-button {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 190px;
+  min-width: 210px;
   min-height: 40px;
-  margin: 26px 0 0 auto;
+  margin: 0;
   border: 0;
   border-radius: 5px;
   padding: 0 22px;
@@ -301,6 +321,26 @@ textarea {
 
 .save-button:hover {
   background: #e23862;
+}
+
+.save-button-secondary {
+  color: #ef476f;
+  border: 1px solid rgb(239 71 111 / 36%);
+  background: #fff3f6;
+  box-shadow: none;
+}
+
+.save-button-secondary:hover {
+  background: #ffe8ee;
+}
+
+.save-feedback {
+  min-height: 1.2em;
+  margin: 10px 0 0;
+  color: #21865d;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: right;
 }
 
 .visually-hidden {
@@ -343,8 +383,16 @@ textarea {
     width: 100%;
   }
 
+  .save-actions {
+    flex-direction: column;
+  }
+
   .save-button {
     width: 100%;
+  }
+
+  .save-feedback {
+    text-align: left;
   }
 }
 

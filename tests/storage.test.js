@@ -101,7 +101,7 @@ describe('daily report storage helpers', () => {
       metricSheets: [{
         name: 'Операции',
         rows: [
-          { frequency: 'ежедневно', metric: 'Проверить смену', role: 'Операции' },
+          { frequency: 'ежедневно', metric: 'Проверить смену', description: 'Сверить все открытые смены', goal: 'Нет незакрытых смен', role: 'Операции', managerRole: 'Директор' },
           { frequency: 'ежемесячно', metric: 'Собрать отчёт', role: 'Операции' },
         ],
       }],
@@ -110,6 +110,9 @@ describe('daily report storage helpers', () => {
     assert.equal(catalog.infoRows[0].fullName, 'Реальный Сотрудник');
     assert.equal(catalog.infoRows[0].managerRole, 'Директор');
     assert.equal(catalog.checklist.length, 2);
+    assert.equal(catalog.checklist[0].description, 'Сверить все открытые смены');
+    assert.equal(catalog.checklist[0].goal, 'Нет незакрытых смен');
+    assert.equal(catalog.checklist[0].managerRole, 'Директор');
     assert.deepEqual(groupMetricsByFrequency(catalog.checklist).map((group) => group.id), ['daily', 'monthly']);
   });
 
@@ -123,7 +126,7 @@ describe('daily report storage helpers', () => {
             infoRows: [{ fullName: 'Мария Реальная', role: 'Контроль качества' }],
             metricSheets: [{
               name: 'Контроль качества',
-              rows: [{ frequency: 'еженедельно', metric: 'Проверить чек-листы', role: 'Контроль качества' }],
+              rows: [{ frequency: 'еженедельно', metric: 'Проверить чек-листы', description: 'Описание из C', goal: 'Цель из D', role: 'Контроль качества', managerRole: 'Операционный директор' }],
             }],
           };
         },
@@ -132,6 +135,9 @@ describe('daily report storage helpers', () => {
 
     assert.equal(catalog.infoRows[0].fullName, 'Мария Реальная');
     assert.equal(catalog.checklist[0].category, 'weekly');
+    assert.equal(catalog.checklist[0].description, 'Описание из C');
+    assert.equal(catalog.checklist[0].goal, 'Цель из D');
+    assert.equal(catalog.checklist[0].managerRole, 'Операционный директор');
   });
 
   it('exports rows to csv with role, frequency and status labels', () => {
