@@ -13,15 +13,16 @@ const CONFIG = {
   infoSheetName: 'Инфо',
   headerRows: 1,
   info: {
-    // На листе «Инфо»: поменяйте номера колонок, если ФИО/роль стоят не в A/B.
+    // На листе «Инфо»: A = ФИО, B = роль сотрудника, C = роль руководителя.
     fullNameColumn: 1,
     roleColumn: 2,
+    managerRoleColumn: 3,
   },
   metrics: {
-    // На всех листах с метриками: A = периодичность, B = метрика, I = роль.
+    // На всех листах с метриками: A = периодичность, B = метрика, E = роль.
     frequencyColumn: 1,
     metricColumn: 2,
-    roleColumn: 9,
+    roleColumn: 5,
     // Необязательные колонки. Оставьте null, если их нет в таблице.
     reportFormatColumn: null,
     typeColumn: null,
@@ -56,6 +57,7 @@ function readInfoRows_(sheet) {
   return getDataRows_(sheet).map((row) => ({
     fullName: getCell_(row, CONFIG.info.fullNameColumn),
     role: getCell_(row, CONFIG.info.roleColumn),
+    managerRole: getCell_(row, CONFIG.info.managerRoleColumn),
   })).filter((row) => row.fullName && row.role);
 }
 

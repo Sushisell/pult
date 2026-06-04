@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { loadCatalog } from '../src/data-source.js';
-import { buildCsv, createEmptyReport, getCompletion, getReportForDate, upsertReport } from '../src/storage.js';
+import { buildCsv, createEmptyReport, getCompletion, getDueMetricsForDate, getReportForDate, makeReportKey, upsertReport } from '../src/storage.js';
 import { CHECKLIST, createCatalog, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from '../src/checklist.js';
 import { APP_VERSION } from '../src/version.js';
 
@@ -30,6 +30,39 @@ describe('daily report storage helpers', () => {
     assert.equal(report.rows.length, CHECKLIST.length);
     assert.equal(report.rows[0].status, 'done');
     assert.equal(getCompletion(report).percent, Math.round((1 / CHECKLIST.length) * 100));
+  });
+
+
+
+  it('stores separate reports for different employees on the same date', () => {
+    const first = createEmptyReport('2026-06-01', CHECKLIST, 'Коваленко Марина Сергеевна');
+    const second = createEmptyReport('2026-06-01', CHECKLIST, 'Иванова Анна Петровна');
+
+    const reports = upsertReport(upsertReport({}, first), second);
+
+    assert.ok(reports[makeReportKey('2026-06-01', 'Коваленко Марина Сергеевна')]);
+    assert.ok(reports[makeReportKey('2026-06-01', 'Иванова Анна Петровна')]);
+    assert.equal(getReportForDate(reports, '2026-06-01', CHECKLIST, 'Иванова Анна Петровна').owner, 'Иванова Анна Петровна');
+  });
+
+  it('hides already filled weekly and monthly metrics in the same period', () => {
+    const report = createEmptyReport('2026-06-01', CHECKLIST, 'Коваленко Марина Сергеевна');
+    const hrMetrics = getMetricsForRole('HR');
+    const weekly = hrMetrics.find((metric) => metric.category === 'weekly');
+    const monthly = hrMetrics.find((metric) => metric.category === 'monthly');
+    report.rows.find((row) => row.id === weekly.id).status = 'done';
+    report.rows.find((row) => row.id === monthly.id).status = 'done';
+    const reports = upsertReport({}, report);
+
+    const dueSameWeek = getDueMetricsForDate(reports, '2026-06-03', 'Коваленко Марина Сергеевна', hrMetrics);
+    const dueNextWeekSameMonth = getDueMetricsForDate(reports, '2026-06-08', 'Коваленко Марина Сергеевна', hrMetrics);
+    const dueNextMonth = getDueMetricsForDate(reports, '2026-07-01', 'Коваленко Марина Сергеевна', hrMetrics);
+
+    assert.equal(dueSameWeek.some((metric) => metric.id === weekly.id), false);
+    assert.equal(dueSameWeek.some((metric) => metric.id === monthly.id), false);
+    assert.equal(dueNextWeekSameMonth.some((metric) => metric.id === weekly.id), true);
+    assert.equal(dueNextWeekSameMonth.some((metric) => metric.id === monthly.id), false);
+    assert.equal(dueNextMonth.some((metric) => metric.id === monthly.id), true);
   });
 
   it('finds a role by FIO on Info and groups matching metrics by frequency', () => {
@@ -64,7 +97,7 @@ describe('daily report storage helpers', () => {
 
   it('builds a catalog from external workbook data', () => {
     const catalog = createCatalog({
-      infoRows: [{ fullName: 'Реальный Сотрудник', role: 'Операции' }],
+      infoRows: [{ fullName: 'Реальный Сотрудник', role: 'Операции', managerRole: 'Директор' }],
       metricSheets: [{
         name: 'Операции',
         rows: [
@@ -75,6 +108,7 @@ describe('daily report storage helpers', () => {
     });
 
     assert.equal(catalog.infoRows[0].fullName, 'Реальный Сотрудник');
+    assert.equal(catalog.infoRows[0].managerRole, 'Директор');
     assert.equal(catalog.checklist.length, 2);
     assert.deepEqual(groupMetricsByFrequency(catalog.checklist).map((group) => group.id), ['daily', 'monthly']);
   });

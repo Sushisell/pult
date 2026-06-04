@@ -39,12 +39,14 @@
           <h2 id="active-category-title">Ежедневные проверки</h2>
           <span class="visually-hidden" id="active-category-count">0 из 0 проверено</span>
         </div>
+        <div class="frequency-filters" id="category-tabs" aria-label="Фильтр периодичности"></div>
         <div class="checklist-list" id="checklist-body"></div>
         <button class="save-button" id="save-button" type="button">Сохранить результаты</button>
       </section>
 
+      <section class="panel manager-panel" id="manager-dashboard" aria-label="Дашборд руководителя" hidden></section>
+
       <button class="visually-hidden" id="export-button" type="button" aria-hidden="true" tabindex="-1">Скачать CSV</button>
-      <div class="visually-hidden" id="category-tabs" aria-hidden="true"></div>
       <div class="visually-hidden" id="summary-list" aria-hidden="true"></div>
       <div class="visually-hidden" id="hero-score" aria-hidden="true"></div>
       <span class="visually-hidden" id="done-count">0</span>
