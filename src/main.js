@@ -1,11 +1,13 @@
-import { INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from './checklist.js';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from './checklist.js';
 import { loadCatalog } from './data-source.js';
 import { APP_VERSION } from './version.js';
 import {
   buildCsv,
   buildSummaryRows,
   getCompletion,
+  getDueMetricsForDate,
   getReportForDate,
+  isMetricFilled,
   loadReports,
   saveReports,
   todayISO,
@@ -15,6 +17,7 @@ import {
 const state = {
   reports: loadReports(),
   date: todayISO(),
+  frequencyFilter: 'all',
   report: null,
   catalog: {
     infoRows: INFO_ROWS,
@@ -37,6 +40,7 @@ const elements = {
   doneCount: document.querySelector('#done-count'),
   issueCount: document.querySelector('#issue-count'),
   skippedCount: document.querySelector('#skipped-count'),
+  managerDashboard: document.querySelector('#manager-dashboard'),
 };
 
 state.report = getReportForDate(state.reports, state.date, state.catalog.checklist, getDefaultOwner());
@@ -84,9 +88,14 @@ function exportCsv() {
 
 function getOwnerContext() {
   const employee = findEmployeeByFullName(state.report.owner, state.catalog.infoRows);
-  const metrics = employee ? getMetricsForRole(employee.role, state.catalog.checklist) : [];
+  const roleMetrics = employee ? getMetricsForRole(employee.role, state.catalog.checklist) : [];
+  const dueMetrics = employee ? getDueMetricsForDate(state.reports, state.date, employee.fullName, roleMetrics) : [];
+  const metrics = state.frequencyFilter === 'all'
+    ? dueMetrics
+    : dueMetrics.filter((metric) => metric.category === state.frequencyFilter);
   return {
     employee,
+    roleMetrics,
     metrics,
     groups: groupMetricsByFrequency(metrics),
   };
@@ -109,10 +118,31 @@ function render() {
   renderTabs();
   renderChecklist(context);
   renderSummary();
+  renderManagerDashboard(context.employee);
 }
 
 function renderTabs() {
   elements.tabs.innerHTML = '';
+  elements.tabs.removeAttribute('aria-hidden');
+  elements.tabs.classList.remove('visually-hidden');
+
+  const options = [
+    { id: 'all', label: 'Все актуальные' },
+    ...CATEGORIES,
+  ];
+
+  for (const option of options) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'frequency-filter';
+    button.textContent = option.label;
+    button.setAttribute('aria-pressed', String(state.frequencyFilter === option.id));
+    button.addEventListener('click', () => {
+      state.frequencyFilter = option.id;
+      render();
+    });
+    elements.tabs.append(button);
+  }
 }
 
 function renderChecklist({ employee, groups }) {
@@ -128,8 +158,17 @@ function renderChecklist({ employee, groups }) {
     return;
   }
 
+  const visibleCount = groups.reduce((total, group) => total + group.items.length, 0);
   elements.activeCategoryTitle.textContent = `Метрики для роли: ${employee.role}`;
-  elements.activeCategoryCount.textContent = `${groups.reduce((total, group) => total + group.items.length, 0)} показателей`;
+  elements.activeCategoryCount.textContent = `${visibleCount} показателей`;
+
+  if (visibleCount === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'empty';
+    empty.textContent = 'Для выбранной частоты нет актуальных метрик: еженедельные и ежемесячные скрываются, если уже заполнялись в текущем периоде.';
+    elements.checklistBody.append(empty);
+    return;
+  }
 
   for (const group of groups) {
     const section = document.createElement('section');
@@ -168,7 +207,7 @@ function createMetricCell(item) {
   format.textContent = item.reportFormat;
   const source = document.createElement('span');
   source.className = 'metric-source';
-  source.textContent = `Лист: ${item.sourceSheet}, колонка B · роль из колонки I: ${item.role}`;
+  source.textContent = `Лист: ${item.sourceSheet}, колонка B · роль из колонки E: ${item.role}`;
   wrapper.append(title, format, source);
   return wrapper;
 }
@@ -251,6 +290,67 @@ function renderSummary() {
   }
 }
 
+
+function renderManagerDashboard(employee) {
+  if (!elements.managerDashboard) return;
+  elements.managerDashboard.innerHTML = '';
+
+  if (!employee) {
+    elements.managerDashboard.hidden = true;
+    return;
+  }
+
+  const team = getManagedEmployees(employee);
+  if (team.length === 0) {
+    elements.managerDashboard.hidden = true;
+    return;
+  }
+
+  elements.managerDashboard.hidden = false;
+  const title = document.createElement('h2');
+  title.textContent = `Дашборд руководителя: ${employee.role}`;
+  const note = document.createElement('p');
+  note.className = 'manager-note';
+  note.textContent = 'Статус заполнения сотрудников за выбранную дату. Еженедельные и ежемесячные метрики учитываются только если они актуальны в текущем периоде.';
+  const list = document.createElement('div');
+  list.className = 'manager-list';
+
+  for (const teammate of team) {
+    const metrics = getMetricsForRole(teammate.role, state.catalog.checklist);
+    const dueMetrics = getDueMetricsForDate(state.reports, state.date, teammate.fullName, metrics);
+    const report = getReportForDate(state.reports, state.date, state.catalog.checklist, teammate.fullName);
+    const completion = getCompletion(report, dueMetrics);
+    const filledAny = dueMetrics.some((metric) => isMetricFilled(report, metric.id));
+    const card = document.createElement('article');
+    card.className = 'manager-card';
+    card.innerHTML = `
+      <div>
+        <strong>${escapeHtml(teammate.fullName)}</strong>
+        <span>${escapeHtml(teammate.role)}</span>
+      </div>
+      <div class="manager-status">
+        <b>${completion.percent}%</b>
+        <span>${filledAny ? 'Заполнялось' : 'Не заполнено'} · ${completion.done}/${completion.total}</span>
+      </div>
+    `;
+    list.append(card);
+  }
+
+  elements.managerDashboard.append(title, note, list);
+}
+
+function getManagedEmployees(manager) {
+  const normalizedManagerRole = normalizeText(manager.role);
+  return state.catalog.infoRows.filter((employee) => (
+    employee.fullName !== manager.fullName
+    && normalizeText(employee.managerRole) === normalizedManagerRole
+  ));
+}
+
+function normalizeText(value) {
+  return String(value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
 function escapeHtml(value) {
   return String(value).replace(/[&<>'"]/g, (character) => ({
     '&': '&amp;',
@@ -263,11 +363,14 @@ function escapeHtml(value) {
 
 elements.dateInput.addEventListener('change', (event) => {
   state.date = event.target.value;
-  state.report = getReportForDate(state.reports, state.date, state.catalog.checklist, getDefaultOwner());
+  state.report = getReportForDate(state.reports, state.date, state.catalog.checklist, state.report.owner || getDefaultOwner());
   render();
 });
 
-elements.ownerInput.addEventListener('change', (event) => updateReport({ owner: event.target.value }));
+elements.ownerInput.addEventListener('change', (event) => {
+  state.report = getReportForDate(state.reports, state.date, state.catalog.checklist, event.target.value);
+  render();
+});
 elements.saveButton.addEventListener('click', () => persist(state.report));
 elements.exportButton.addEventListener('click', exportCsv);
 
@@ -283,9 +386,10 @@ function refreshOwnerOptions() {
 
 async function hydrateCatalog() {
   state.catalog = await loadCatalog();
-  const hasSavedReport = Boolean(state.reports[state.date]);
-  state.report = getReportForDate(state.reports, state.date, state.catalog.checklist, getDefaultOwner());
-  if (!hasSavedReport && getDefaultOwner()) state.report.owner = getDefaultOwner();
+  const defaultOwner = getDefaultOwner();
+  const selectedOwner = state.report?.owner || defaultOwner;
+  state.report = getReportForDate(state.reports, state.date, state.catalog.checklist, selectedOwner);
+  if (!state.report.owner && defaultOwner) state.report.owner = defaultOwner;
   refreshOwnerOptions();
   render();
 }

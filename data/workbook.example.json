@@ -1,8 +1,9 @@
 {
   "infoRows": [
-    { "fullName": "Фамилия Имя Отчество", "role": "Роль 1" },
-    { "fullName": "Другой Сотрудник", "role": "Роль 2" },
-    { "fullName": "Третий Сотрудник", "role": "Роль 3" }
+    { "fullName": "Фамилия Имя Отчество", "role": "Роль 1", "managerRole": "Руководитель" },
+    { "fullName": "Другой Сотрудник", "role": "Роль 2", "managerRole": "Руководитель" },
+    { "fullName": "Третий Сотрудник", "role": "Роль 3", "managerRole": "Руководитель" },
+    { "fullName": "Руководитель Команды", "role": "Руководитель", "managerRole": "" }
   ],
   "metricSheets": [
     {

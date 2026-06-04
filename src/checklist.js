@@ -11,9 +11,10 @@ export const CATEGORIES = [
 ];
 
 export const INFO_ROWS = [
-  { fullName: 'Коваленко Марина Сергеевна', role: 'HR' },
-  { fullName: 'Иванова Анна Петровна', role: 'Франчайзинг' },
-  { fullName: 'Петрова Ольга Андреевна', role: 'Маркетинг' },
+  { fullName: 'Коваленко Марина Сергеевна', role: 'HR', managerRole: 'Операционный директор' },
+  { fullName: 'Иванова Анна Петровна', role: 'Франчайзинг', managerRole: 'Операционный директор' },
+  { fullName: 'Петрова Ольга Андреевна', role: 'Маркетинг', managerRole: 'Операционный директор' },
+  { fullName: 'Смирнов Алексей Викторович', role: 'Операционный директор', managerRole: '' },
 ];
 
 export const METRIC_SHEETS = [
@@ -203,6 +204,7 @@ function normalizeInfoRows(infoRows) {
     .map((row) => ({
       fullName: String(row.fullName ?? row.name ?? row['ФИО'] ?? '').trim(),
       role: String(row.role ?? row['Роль'] ?? '').trim(),
+      managerRole: String(row.managerRole ?? row.manager ?? row['Роль руководителя'] ?? '').trim(),
     }))
     .filter((row) => row.fullName && row.role);
 }
