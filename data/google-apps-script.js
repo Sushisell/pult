@@ -19,10 +19,14 @@ const CONFIG = {
     managerRoleColumn: 3,
   },
   metrics: {
-    // На всех листах с метриками: A = периодичность, B = метрика, E = роль.
+    // На всех листах с метриками: A = периодичность, B = название, C = описание, D = цель,
+    // F = должность ответственного, J = руководитель, которому нужен дашборд.
     frequencyColumn: 1,
     metricColumn: 2,
-    roleColumn: 5,
+    descriptionColumn: 3,
+    goalColumn: 4,
+    roleColumn: 6,
+    managerRoleColumn: 10,
     // Необязательные колонки. Оставьте null, если их нет в таблице.
     reportFormatColumn: null,
     typeColumn: null,
@@ -67,8 +71,11 @@ function readMetricSheet_(sheet) {
     rows: getDataRows_(sheet).map((row, index) => ({
       frequency: getCell_(row, CONFIG.metrics.frequencyColumn),
       metric: getCell_(row, CONFIG.metrics.metricColumn),
+      description: getOptionalCell_(row, CONFIG.metrics.descriptionColumn),
+      goal: getOptionalCell_(row, CONFIG.metrics.goalColumn),
       role: getCell_(row, CONFIG.metrics.roleColumn),
-      reportFormat: getOptionalCell_(row, CONFIG.metrics.reportFormatColumn) || 'Проверено / не проверено',
+      managerRole: getOptionalCell_(row, CONFIG.metrics.managerRoleColumn),
+      reportFormat: getOptionalCell_(row, CONFIG.metrics.reportFormatColumn) || getOptionalCell_(row, CONFIG.metrics.descriptionColumn) || 'Проверено / не проверено',
       type: getOptionalCell_(row, CONFIG.metrics.typeColumn) || 'checkbox',
       placeholder: getOptionalCell_(row, CONFIG.metrics.placeholderColumn),
       suffix: getOptionalCell_(row, CONFIG.metrics.suffixColumn),

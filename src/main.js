@@ -29,7 +29,10 @@ const elements = {
   appVersion: document.querySelector('#app-version'),
   dateInput: document.querySelector('#date-input'),
   ownerInput: document.querySelector('#owner-input'),
-  saveButton: document.querySelector('#save-button'),
+  dateError: document.querySelector('#date-error'),
+  saveDailyButton: document.querySelector('#save-daily-button'),
+  saveWeeklyButton: document.querySelector('#save-weekly-button'),
+  saveFeedback: document.querySelector('#save-feedback'),
   exportButton: document.querySelector('#export-button'),
   tabs: document.querySelector('#category-tabs'),
   checklistBody: document.querySelector('#checklist-body'),
@@ -202,13 +205,26 @@ function createMetricCell(item) {
   const title = document.createElement('strong');
   title.className = 'metric-title';
   title.textContent = item.metric;
-  const format = document.createElement('span');
-  format.className = 'metric-format';
-  format.textContent = item.reportFormat;
+  wrapper.append(title);
+
+  if (item.description) {
+    const description = document.createElement('span');
+    description.className = 'metric-format';
+    description.textContent = item.description;
+    wrapper.append(description);
+  }
+
+  if (item.goal) {
+    const goal = document.createElement('span');
+    goal.className = 'metric-goal';
+    goal.textContent = `Цель: ${item.goal}`;
+    wrapper.append(goal);
+  }
+
   const source = document.createElement('span');
   source.className = 'metric-source';
-  source.textContent = `Лист: ${item.sourceSheet}, колонка B · роль из колонки E: ${item.role}`;
-  wrapper.append(title, format, source);
+  source.textContent = `Лист: ${item.sourceSheet}, колонка B · должность из колонки F: ${item.role}`;
+  wrapper.append(source);
   return wrapper;
 }
 
@@ -341,10 +357,12 @@ function renderManagerDashboard(employee) {
 
 function getManagedEmployees(manager) {
   const normalizedManagerRole = normalizeText(manager.role);
-  return state.catalog.infoRows.filter((employee) => (
-    employee.fullName !== manager.fullName
-    && normalizeText(employee.managerRole) === normalizedManagerRole
-  ));
+  return state.catalog.infoRows.filter((employee) => {
+    if (employee.fullName === manager.fullName) return false;
+    const employeeMetrics = getMetricsForRole(employee.role, state.catalog.checklist);
+    const reportsToManager = employeeMetrics.some((metric) => normalizeText(metric.managerRole) === normalizedManagerRole);
+    return reportsToManager || normalizeText(employee.managerRole) === normalizedManagerRole;
+  });
 }
 
 function normalizeText(value) {
@@ -362,16 +380,43 @@ function escapeHtml(value) {
 }
 
 elements.dateInput.addEventListener('change', (event) => {
-  state.date = event.target.value;
+  const nextDate = event.target.value;
+  if (!setReportDate(nextDate)) event.target.value = state.date;
+});
+
+
+function setReportDate(nextDate) {
+  if (!nextDate) return false;
+  const today = todayISO();
+  if (nextDate > today) {
+    const message = 'Ай-ай-ай... хочешь заполнить отчёт раньше времени? Атата! Выбери сегодня или любую прошедшую дату.';
+    elements.dateError.textContent = message;
+    elements.dateError.hidden = false;
+    elements.dateInput.setCustomValidity(message);
+    elements.dateInput.reportValidity();
+    return false;
+  }
+
+  elements.dateError.hidden = true;
+  elements.dateInput.setCustomValidity('');
+  state.date = nextDate;
   state.report = getReportForDate(state.reports, state.date, state.catalog.checklist, state.report.owner || getDefaultOwner());
   render();
-});
+  return true;
+}
+
+function saveFrequencyReport(category) {
+  persist(state.report);
+  const label = category === 'weekly' ? 'Еженедельный' : 'Ежедневный';
+  elements.saveFeedback.textContent = `${label} отчёт сохранён за ${state.date}.`;
+}
 
 elements.ownerInput.addEventListener('change', (event) => {
   state.report = getReportForDate(state.reports, state.date, state.catalog.checklist, event.target.value);
   render();
 });
-elements.saveButton.addEventListener('click', () => persist(state.report));
+elements.saveDailyButton.addEventListener('click', () => saveFrequencyReport('daily'));
+elements.saveWeeklyButton.addEventListener('click', () => saveFrequencyReport('weekly'));
 elements.exportButton.addEventListener('click', exportCsv);
 
 function getDefaultOwner() {

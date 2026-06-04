@@ -22,14 +22,11 @@
           <label>
             Выбрать дату
             <input id="date-input" type="date" />
+            <span class="field-error" id="date-error" role="alert" hidden></span>
           </label>
           <label>
             Выбрать ФИО
-            <select id="owner-input">
-              <option value="Коваленко Марина Сергеевна">Коваленко Марина Сергеевна</option>
-              <option value="Иванова Анна Петровна">Иванова Анна Петровна</option>
-              <option value="Петрова Ольга Андреевна">Петрова Ольга Андреевна</option>
-            </select>
+            <select id="owner-input"></select>
           </label>
         </div>
       </section>
@@ -41,7 +38,11 @@
         </div>
         <div class="frequency-filters" id="category-tabs" aria-label="Фильтр периодичности"></div>
         <div class="checklist-list" id="checklist-body"></div>
-        <button class="save-button" id="save-button" type="button">Сохранить результаты</button>
+        <div class="save-actions" aria-label="Сохранение отчётов">
+          <button class="save-button" id="save-daily-button" type="button">Сохранить ежедневный отчёт</button>
+          <button class="save-button save-button-secondary" id="save-weekly-button" type="button">Сохранить еженедельный отчёт</button>
+        </div>
+        <p class="save-feedback" id="save-feedback" role="status" aria-live="polite"></p>
       </section>
 
       <section class="panel manager-panel" id="manager-dashboard" aria-label="Дашборд руководителя" hidden></section>

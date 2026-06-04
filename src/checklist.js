@@ -223,8 +223,11 @@ function normalizeMetricRows(rows) {
     .map((row) => ({
       frequency: String(row.frequency ?? row['Периодичность'] ?? '').trim(),
       metric: String(row.metric ?? row['Метрика'] ?? '').trim(),
-      role: String(row.role ?? row['Роль'] ?? '').trim(),
-      reportFormat: String(row.reportFormat ?? row['Формат отчёта'] ?? 'Проверено / не проверено').trim(),
+      description: String(row.description ?? row['Описание'] ?? row.reportFormat ?? row['Формат отчёта'] ?? '').trim(),
+      goal: String(row.goal ?? row['Цель'] ?? '').trim(),
+      role: String(row.role ?? row['Должность ответственного'] ?? row['Роль'] ?? '').trim(),
+      managerRole: String(row.managerRole ?? row.dashboardManagerRole ?? row['Руководитель для дашборда'] ?? row['Роль руководителя'] ?? '').trim(),
+      reportFormat: String(row.reportFormat ?? row['Формат отчёта'] ?? row.description ?? row['Описание'] ?? 'Проверено / не проверено').trim(),
       type: String(row.type ?? row['Тип'] ?? 'checkbox').trim(),
       placeholder: row.placeholder ?? row['Плейсхолдер'] ?? undefined,
       suffix: row.suffix ?? row['Суффикс'] ?? undefined,
