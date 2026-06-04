@@ -1,4 +1,5 @@
-import { CATEGORIES, CHECKLIST, STATUS } from './checklist.js';
+import { INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from './checklist.js';
+import { loadCatalog } from './data-source.js';
 import {
   buildCsv,
   buildSummaryRows,
@@ -14,12 +15,16 @@ const state = {
   reports: loadReports(),
   date: todayISO(),
   report: null,
-  activeCategory: CATEGORIES[0].id,
+  catalog: {
+    infoRows: INFO_ROWS,
+    checklist: CHECKLIST,
+  },
 };
 
 const elements = {
   dateInput: document.querySelector('#date-input'),
   ownerInput: document.querySelector('#owner-input'),
+  ownerOptions: document.querySelector('#owner-options'),
   saveButton: document.querySelector('#save-button'),
   exportButton: document.querySelector('#export-button'),
   tabs: document.querySelector('#category-tabs'),
@@ -33,16 +38,15 @@ const elements = {
   skippedCount: document.querySelector('#skipped-count'),
 };
 
-state.report = getReportForDate(state.reports, state.date);
+state.report = getReportForDate(state.reports, state.date, state.catalog.checklist, getDefaultOwner());
 elements.dateInput.value = state.date;
 
-
 function ensureOwnerOption(owner) {
-  if (!owner || Array.from(elements.ownerInput.options).some((option) => option.value === owner)) return;
+  if (!owner || !elements.ownerOptions) return;
+  if (Array.from(elements.ownerOptions.options).some((option) => option.value === owner)) return;
   const option = document.createElement('option');
   option.value = owner;
-  option.textContent = owner;
-  elements.ownerInput.append(option);
+  elements.ownerOptions.append(option);
 }
 
 function persist(nextReport) {
@@ -65,7 +69,7 @@ function updateRow(id, patch) {
 }
 
 function exportCsv() {
-  const csv = buildCsv(upsertReport(state.reports, state.report));
+  const csv = buildCsv(upsertReport(state.reports, state.report), state.catalog);
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -75,8 +79,19 @@ function exportCsv() {
   URL.revokeObjectURL(url);
 }
 
+function getOwnerContext() {
+  const employee = findEmployeeByFullName(state.report.owner, state.catalog.infoRows);
+  const metrics = employee ? getMetricsForRole(employee.role, state.catalog.checklist) : [];
+  return {
+    employee,
+    metrics,
+    groups: groupMetricsByFrequency(metrics),
+  };
+}
+
 function render() {
-  const completion = getCompletion(state.report);
+  const context = getOwnerContext();
+  const completion = getCompletion(state.report, context.metrics);
   ensureOwnerOption(state.report.owner);
   elements.ownerInput.value = state.report.owner;
   elements.heroScore.setAttribute('aria-label', `Выполнено ${completion.percent}%`);
@@ -89,7 +104,7 @@ function render() {
   elements.issueCount.textContent = completion.issues;
   elements.skippedCount.textContent = completion.skipped;
   renderTabs();
-  renderChecklist();
+  renderChecklist(context);
   renderSummary();
 }
 
@@ -97,30 +112,36 @@ function renderTabs() {
   elements.tabs.innerHTML = '';
 }
 
-function renderChecklist() {
+function renderChecklist({ employee, groups }) {
   elements.checklistBody.innerHTML = '';
-  const category = CATEGORIES.find((entry) => entry.id === state.activeCategory) ?? CATEGORIES[0];
-  const items = CHECKLIST.filter((item) => item.category === category.id);
-  const completion = getCategoryCompletion(category.id);
 
-  elements.activeCategoryTitle.textContent = 'Ежедневные проверки';
-  elements.activeCategoryCount.textContent = `${completion.done} из ${completion.total} проверено`;
-
-  for (const item of items) {
-    const row = state.report.rows.find((entry) => entry.id === item.id);
-    elements.checklistBody.append(createChecklistCard(item, row));
+  if (!employee) {
+    elements.activeCategoryTitle.textContent = 'Метрики не найдены';
+    elements.activeCategoryCount.textContent = '0 из 0 проверено';
+    const empty = document.createElement('p');
+    empty.className = 'empty';
+    empty.textContent = 'Введите ФИО как на листе «Инфо», чтобы определить роль и показать подходящие метрики.';
+    elements.checklistBody.append(empty);
+    return;
   }
-}
 
-function getCategoryCompletion(categoryId) {
-  const itemIds = CHECKLIST.filter((item) => item.category === categoryId).map((item) => item.id);
-  const rows = state.report.rows.filter((row) => itemIds.includes(row.id));
-  const done = rows.filter((row) => row.status === 'done').length;
-  return {
-    total: rows.length,
-    done,
-    percent: rows.length === 0 ? 0 : Math.round((done / rows.length) * 100),
-  };
+  elements.activeCategoryTitle.textContent = `Метрики для роли: ${employee.role}`;
+  elements.activeCategoryCount.textContent = `${groups.reduce((total, group) => total + group.items.length, 0)} показателей`;
+
+  for (const group of groups) {
+    const section = document.createElement('section');
+    section.className = 'frequency-group';
+    const heading = document.createElement('h3');
+    heading.textContent = group.label;
+    section.append(heading);
+
+    for (const item of group.items) {
+      const row = state.report.rows.find((entry) => entry.id === item.id);
+      section.append(createChecklistCard(item, row));
+    }
+
+    elements.checklistBody.append(section);
+  }
 }
 
 function createChecklistCard(item, row) {
@@ -142,7 +163,10 @@ function createMetricCell(item) {
   const format = document.createElement('span');
   format.className = 'metric-format';
   format.textContent = item.reportFormat;
-  wrapper.append(title, format);
+  const source = document.createElement('span');
+  source.className = 'metric-source';
+  source.textContent = `Лист: ${item.sourceSheet}, колонка B · роль из колонки I: ${item.role}`;
+  wrapper.append(title, format, source);
   return wrapper;
 }
 
@@ -153,7 +177,7 @@ function createControlCell(item, row) {
     const input = document.createElement('input');
     input.type = 'number';
     input.value = row.value;
-    input.placeholder = '0';
+    input.placeholder = item.placeholder ?? '0';
     input.addEventListener('input', (event) => updateRow(item.id, { value: event.target.value }));
     const suffix = document.createElement('span');
     suffix.textContent = item.suffix;
@@ -161,6 +185,8 @@ function createControlCell(item, row) {
     return wrapper;
   }
 
+  const wrapper = document.createElement('div');
+  wrapper.className = 'control-stack';
   const group = document.createElement('div');
   group.className = 'status-toggle';
 
@@ -179,11 +205,21 @@ function createControlCell(item, row) {
     group.append(option);
   }
 
-  return group;
+  wrapper.append(group);
+
+  if (item.type === 'checkboxWithText') {
+    const textarea = document.createElement('textarea');
+    textarea.placeholder = item.placeholder ?? 'Комментарий';
+    textarea.value = row.comment;
+    textarea.addEventListener('input', (event) => updateRow(item.id, { comment: event.target.value }));
+    wrapper.append(textarea);
+  }
+
+  return wrapper;
 }
 
 function renderSummary() {
-  const summaryRows = buildSummaryRows(state.reports);
+  const summaryRows = buildSummaryRows(state.reports, state.catalog);
   elements.summaryList.innerHTML = '';
 
   if (summaryRows.length === 0) {
@@ -224,7 +260,7 @@ function escapeHtml(value) {
 
 elements.dateInput.addEventListener('change', (event) => {
   state.date = event.target.value;
-  state.report = getReportForDate(state.reports, state.date);
+  state.report = getReportForDate(state.reports, state.date, state.catalog.checklist, getDefaultOwner());
   render();
 });
 
@@ -232,4 +268,25 @@ elements.ownerInput.addEventListener('input', (event) => updateReport({ owner: e
 elements.saveButton.addEventListener('click', () => persist(state.report));
 elements.exportButton.addEventListener('click', exportCsv);
 
+function getDefaultOwner() {
+  return state.catalog.infoRows[0]?.fullName ?? '';
+}
+
+function refreshOwnerOptions() {
+  if (!elements.ownerOptions) return;
+  elements.ownerOptions.innerHTML = '';
+  for (const employee of state.catalog.infoRows) ensureOwnerOption(employee.fullName);
+}
+
+async function hydrateCatalog() {
+  state.catalog = await loadCatalog();
+  const hasSavedReport = Boolean(state.reports[state.date]);
+  state.report = getReportForDate(state.reports, state.date, state.catalog.checklist, getDefaultOwner());
+  if (!hasSavedReport && getDefaultOwner()) state.report.owner = getDefaultOwner();
+  refreshOwnerOptions();
+  render();
+}
+
+refreshOwnerOptions();
 render();
+hydrateCatalog();
