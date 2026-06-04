@@ -34,6 +34,8 @@ textarea {
   margin: 28px auto 0;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   padding: 0 28px;
   background: #15162c;
   box-shadow: 0 10px 28px rgb(20 22 44 / 8%);
@@ -78,6 +80,20 @@ textarea {
   height: 7px;
   border-radius: 50%;
   background: #ffffff;
+}
+
+.app-version {
+  flex: 0 0 auto;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: #ffffff;
+  background: rgb(255 255 255 / 9%);
+  font-size: 0.74rem;
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .app-shell {
@@ -304,11 +320,22 @@ textarea {
 
   .app-header {
     margin-top: 14px;
+    padding: 0 18px;
   }
 
   .toolbar,
   .check-row {
     grid-template-columns: 1fr;
+  }
+
+  .brand {
+    min-width: 0;
+  }
+
+  .brand span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .status-toggle,

@@ -1,12 +1,12 @@
 {
   "name": "team-control-panel",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Общая страница «Пульт управления Сушиселл» с вкладками HR, франчайзинга и маркетинга.",
   "type": "module",
   "scripts": {
     "start": "python3 -m http.server 4173",
     "test": "node --test tests/*.test.js",
-    "check": "node --check src/main.js && node --check src/storage.js && node --check src/checklist.js && node --check src/data-source.js && node --check src/config.js && node --check data/google-apps-script.js"
+    "check": "node --check src/main.js && node --check src/version.js && node --check src/storage.js && node --check src/checklist.js && node --check src/data-source.js && node --check src/config.js && node --check data/google-apps-script.js"
   }
 }
