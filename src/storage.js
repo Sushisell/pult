@@ -53,6 +53,64 @@ export function upsertReport(reports, report) {
   };
 }
 
+export function mergeReports(baseReports = {}, incomingReports = {}) {
+  return Object.values(incomingReports).reduce((reports, report) => {
+    const key = makeReportKey(report.date, report.owner);
+    const current = reports[key];
+    if (!current) return { ...reports, [key]: report };
+
+    const incomingRowsById = new Map(report.rows.map((row) => [row.id, row]));
+    return {
+      ...reports,
+      [key]: {
+        ...current,
+        rows: current.rows.map((row) => ({
+          ...row,
+          ...incomingRowsById.get(row.id),
+        })),
+      },
+    };
+  }, baseReports);
+}
+
+export function buildReportsFromDataRows(dataRows = [], checklist = CHECKLIST) {
+  return dataRows.reduce((reports, dataRow) => {
+    const metric = findMetricByName(dataRow.metric, checklist);
+    if (!metric) return reports;
+
+    const report = getReportForDate(reports, dataRow.date, checklist, dataRow.owner);
+    const rows = report.rows.map((row) => {
+      if (row.id !== metric.id) return row;
+      const value = String(dataRow.value ?? '');
+      const comment = String(dataRow.comment ?? '');
+      return {
+        ...row,
+        value,
+        comment,
+        status: metric.type === 'number' ? row.status : getStatusFromStoredValue(value, row.status),
+      };
+    });
+
+    return upsertReport(reports, { ...report, rows });
+  }, {});
+}
+
+export function buildDataRows(report, metrics = CHECKLIST) {
+  const metricIds = new Set(metrics.map((metric) => metric.id));
+  return report.rows
+    .filter((row) => metricIds.has(row.id) && isRowFilled(row))
+    .map((row) => {
+      const metric = metrics.find((item) => item.id === row.id);
+      return {
+        date: report.date,
+        owner: report.owner,
+        metric: metric?.metric ?? row.id,
+        value: getStoredValue(row, metric),
+        comment: String(row.comment ?? '').trim(),
+      };
+    });
+}
+
 export function getReportForDate(reports, date, checklist = CHECKLIST, defaultOwner = getDefaultOwner()) {
   const owner = String(defaultOwner ?? '').trim();
   const current = reports[makeReportKey(date, owner)] ?? getLegacyReport(reports, date, owner);
@@ -153,6 +211,30 @@ export function buildCsv(reports, catalog = getDefaultCatalog()) {
   return [header, ...rows]
     .map((row) => row.map(escapeCsvCell).join(','))
     .join('\n');
+}
+
+function getStoredValue(row, metric) {
+  if (metric?.type === 'number') return String(row.value ?? '').trim();
+  if (String(row.value ?? '').trim()) return String(row.value ?? '').trim();
+  if (row.status === 'done') return 'Проверено';
+  if (row.status === 'issue') return 'Проблема';
+  return '';
+}
+
+function getStatusFromStoredValue(value, fallback = 'skipped') {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  if (!normalized) return fallback;
+  if (normalized.includes('проблем') || normalized.includes('issue')) return 'issue';
+  return 'done';
+}
+
+function findMetricByName(metricName, checklist) {
+  const normalizedMetricName = normalizeText(metricName);
+  return checklist.find((metric) => normalizeText(metric.metric) === normalizedMetricName);
+}
+
+function normalizeText(value) {
+  return String(value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
 function getLegacyReport(reports, date, owner) {

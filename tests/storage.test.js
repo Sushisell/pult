@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { loadCatalog } from '../src/data-source.js';
-import { buildCsv, createEmptyReport, getCompletion, getDueMetricsForDate, getReportForDate, makeReportKey, upsertReport } from '../src/storage.js';
+import { loadCatalog, submitDataRows } from '../src/data-source.js';
+import { buildCsv, buildDataRows, buildReportsFromDataRows, createEmptyReport, getCompletion, getDueMetricsForDate, getReportForDate, makeReportKey, upsertReport } from '../src/storage.js';
 import { CHECKLIST, createCatalog, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from '../src/checklist.js';
 import { APP_VERSION } from '../src/version.js';
 
@@ -113,7 +113,30 @@ describe('daily report storage helpers', () => {
     assert.equal(catalog.checklist[0].description, 'Сверить все открытые смены');
     assert.equal(catalog.checklist[0].goal, 'Нет незакрытых смен');
     assert.equal(catalog.checklist[0].managerRole, 'Директор');
+    assert.equal(createCatalog({ metricSheets: [{ name: 'Типы', rows: [{ frequency: 'ежедневно', metric: 'Число', role: 'Операции', classification: 'Ввод числа' }] }] }).checklist[0].type, 'number');
     assert.deepEqual(groupMetricsByFrequency(catalog.checklist).map((group) => group.id), ['daily', 'monthly']);
+  });
+
+  it('builds reports from sheet data rows and exports filled rows for the Data sheet', () => {
+    const catalog = createCatalog({
+      infoRows: [{ fullName: 'Мария Реальная', role: 'Контроль качества' }],
+      metricSheets: [{
+        name: 'Контроль качества',
+        rows: [
+          { frequency: 'ежедневно', metric: 'Проверить чек-листы', role: 'Контроль качества', classification: 'Проверено' },
+          { frequency: 'ежедневно', metric: 'Количество ошибок', role: 'Контроль качества', classification: 'Ввод числа' },
+        ],
+      }],
+      dataRows: [
+        { date: '2026-06-01', owner: 'Мария Реальная', metric: 'Проверить чек-листы', value: 'Проверено', comment: 'Ок' },
+        { date: '2026-06-01', owner: 'Мария Реальная', metric: 'Количество ошибок', value: '3', comment: 'Исправляем' },
+      ],
+    });
+    const reports = buildReportsFromDataRows(catalog.dataRows, catalog.checklist);
+    const report = getReportForDate(reports, '2026-06-01', catalog.checklist, 'Мария Реальная');
+
+    assert.equal(getCompletion(report, catalog.checklist).done, 2);
+    assert.deepEqual(buildDataRows(report, catalog.checklist), catalog.dataRows);
   });
 
   it('loads catalog data from a configured JSON url', async () => {
@@ -138,6 +161,21 @@ describe('daily report storage helpers', () => {
     assert.equal(catalog.checklist[0].description, 'Описание из C');
     assert.equal(catalog.checklist[0].goal, 'Цель из D');
     assert.equal(catalog.checklist[0].managerRole, 'Операционный директор');
+  });
+
+  it('submits Data sheet rows to a writable endpoint', async () => {
+    let request;
+    const result = await submitDataRows([{ date: '2026-06-01', owner: 'Анна', metric: 'Метрика', value: 'Проверено', comment: '' }], {
+      dataUrl: 'https://script.google.com/macros/s/example/exec',
+      fetchImpl: async (url, options) => {
+        request = { url, options };
+        return { ok: true };
+      },
+    });
+
+    assert.equal(result.skipped, false);
+    assert.equal(request.options.method, 'POST');
+    assert.match(request.options.body, /Метрика/);
   });
 
   it('exports rows to csv with role, frequency and status labels', () => {

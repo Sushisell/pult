@@ -1,14 +1,17 @@
 import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from './checklist.js';
-import { loadCatalog } from './data-source.js';
+import { loadCatalog, submitDataRows } from './data-source.js';
 import { APP_VERSION } from './version.js';
 import {
   buildCsv,
+  buildDataRows,
+  buildReportsFromDataRows,
   buildSummaryRows,
   getCompletion,
   getDueMetricsForDate,
   getReportForDate,
   isMetricFilled,
   loadReports,
+  mergeReports,
   saveReports,
   todayISO,
   upsertReport,
@@ -229,9 +232,12 @@ function createMetricCell(item) {
 }
 
 function createControlCell(item, row) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'control-stack';
+
   if (item.type === 'number') {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'inline-field';
+    const inlineField = document.createElement('div');
+    inlineField.className = 'inline-field';
     const input = document.createElement('input');
     input.type = 'number';
     input.value = row.value;
@@ -239,12 +245,11 @@ function createControlCell(item, row) {
     input.addEventListener('input', (event) => updateRow(item.id, { value: event.target.value }));
     const suffix = document.createElement('span');
     suffix.textContent = item.suffix;
-    wrapper.append(input, suffix);
+    inlineField.append(input, suffix);
+    wrapper.append(inlineField, createCommentField(item, row));
     return wrapper;
   }
 
-  const wrapper = document.createElement('div');
-  wrapper.className = 'control-stack';
   const group = document.createElement('div');
   group.className = 'status-toggle';
 
@@ -263,17 +268,17 @@ function createControlCell(item, row) {
     group.append(option);
   }
 
-  wrapper.append(group);
-
-  if (item.type === 'checkboxWithText') {
-    const textarea = document.createElement('textarea');
-    textarea.placeholder = item.placeholder ?? 'Комментарий';
-    textarea.value = row.comment;
-    textarea.addEventListener('input', (event) => updateRow(item.id, { comment: event.target.value }));
-    wrapper.append(textarea);
-  }
-
+  wrapper.append(group, createCommentField(item, row));
   return wrapper;
+}
+
+function createCommentField(item, row) {
+  const textarea = document.createElement('textarea');
+  textarea.className = 'metric-comment';
+  textarea.placeholder = item.placeholder ?? 'Комментарий к метрике';
+  textarea.value = row.comment;
+  textarea.addEventListener('input', (event) => updateRow(item.id, { comment: event.target.value }));
+  return textarea;
 }
 
 function renderSummary() {
@@ -349,10 +354,34 @@ function renderManagerDashboard(employee) {
         <span>${filledAny ? 'Заполнялось' : 'Не заполнено'} · ${completion.done}/${completion.total}</span>
       </div>
     `;
+    card.append(createManagerMetricList(dueMetrics, report));
     list.append(card);
   }
 
   elements.managerDashboard.append(title, note, list);
+}
+
+function createManagerMetricList(metrics, report) {
+  const list = document.createElement('ul');
+  list.className = 'manager-metric-list';
+
+  for (const metric of metrics) {
+    const filled = isMetricFilled(report, metric.id);
+    const row = report.rows.find((entry) => entry.id === metric.id);
+    const item = document.createElement('li');
+    item.className = filled ? 'is-filled' : 'is-empty';
+    const detail = [row?.value, row?.comment].map((value) => String(value ?? '').trim()).filter(Boolean).join(' · ');
+    item.innerHTML = `
+      <span>${filled ? '✓' : '○'}</span>
+      <div>
+        <strong>${escapeHtml(metric.metric)}</strong>
+        <small>${filled ? escapeHtml(detail || 'Заполнено') : 'Не заполнено'}</small>
+      </div>
+    `;
+    list.append(item);
+  }
+
+  return list;
 }
 
 function getManagedEmployees(manager) {
@@ -405,10 +434,20 @@ function setReportDate(nextDate) {
   return true;
 }
 
-function saveFrequencyReport(category) {
+async function saveFrequencyReport(category) {
   persist(state.report);
   const label = category === 'weekly' ? 'Еженедельный' : 'Ежедневный';
-  elements.saveFeedback.textContent = `${label} отчёт сохранён за ${state.date}.`;
+  const metrics = getOwnerContext().roleMetrics.filter((metric) => metric.category === category);
+  const dataRows = buildDataRows(state.report, metrics);
+
+  try {
+    const result = await submitDataRows(dataRows);
+    const remoteNote = result.skipped ? '' : ' Данные отправлены на лист «Данные».';
+    elements.saveFeedback.textContent = `${label} отчёт сохранён за ${state.date}.${remoteNote}`;
+  } catch (error) {
+    console.warn('Не удалось отправить данные в таблицу.', error);
+    elements.saveFeedback.textContent = `${label} отчёт сохранён локально за ${state.date}, но таблица «Данные» не обновилась.`;
+  }
 }
 
 elements.ownerInput.addEventListener('change', (event) => {
@@ -431,6 +470,9 @@ function refreshOwnerOptions() {
 
 async function hydrateCatalog() {
   state.catalog = await loadCatalog();
+  const sheetReports = buildReportsFromDataRows(state.catalog.dataRows, state.catalog.checklist);
+  state.reports = mergeReports(sheetReports, state.reports);
+  saveReports(state.reports);
   const defaultOwner = getDefaultOwner();
   const selectedOwner = state.report?.owner || defaultOwner;
   state.report = getReportForDate(state.reports, state.date, state.catalog.checklist, selectedOwner);
