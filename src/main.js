@@ -10,7 +10,9 @@ import {
   getDueMetricsForDate,
   getReportForDate,
   isMetricFilled,
+  isReportSubmittedForCategory,
   loadReports,
+  markReportSubmittedForCategory,
   mergeReports,
   saveReports,
   todayISO,
@@ -121,6 +123,8 @@ function render() {
   elements.doneCount.textContent = completion.done;
   elements.issueCount.textContent = completion.issues;
   elements.skippedCount.textContent = completion.skipped;
+  updateSaveButtons();
+  updateSubmittedFeedback();
   renderTabs();
   renderChecklist(context);
   renderSummary();
@@ -165,7 +169,7 @@ function renderChecklist({ employee, groups }) {
   }
 
   const visibleCount = groups.reduce((total, group) => total + group.items.length, 0);
-  elements.activeCategoryTitle.textContent = `Метрики для роли: ${employee.role}`;
+  elements.activeCategoryTitle.textContent = `Метрики для должности: ${employee.role}`;
   elements.activeCategoryCount.textContent = `${visibleCount} показателей`;
 
   if (visibleCount === 0) {
@@ -224,10 +228,6 @@ function createMetricCell(item) {
     wrapper.append(goal);
   }
 
-  const source = document.createElement('span');
-  source.className = 'metric-source';
-  source.textContent = `Лист: ${item.sourceSheet}, колонка B · должность из колонки F: ${item.role}`;
-  wrapper.append(source);
   return wrapper;
 }
 
@@ -242,6 +242,7 @@ function createControlCell(item, row) {
     input.type = 'number';
     input.value = row.value;
     input.placeholder = item.placeholder ?? '0';
+    input.disabled = isMetricLocked(item.category);
     input.addEventListener('input', (event) => updateRow(item.id, { value: event.target.value }));
     const suffix = document.createElement('span');
     suffix.textContent = item.suffix;
@@ -261,6 +262,7 @@ function createControlCell(item, row) {
     input.name = `status-${item.id}`;
     input.value = value;
     input.checked = row.status === value;
+    input.disabled = isMetricLocked(item.category);
     input.addEventListener('change', () => updateRow(item.id, { status: value }));
     const text = document.createElement('span');
     text.textContent = label;
@@ -277,6 +279,7 @@ function createCommentField(item, row) {
   textarea.className = 'metric-comment';
   textarea.placeholder = item.placeholder ?? 'Комментарий к метрике';
   textarea.value = row.comment;
+  textarea.disabled = isMetricLocked(item.category);
   textarea.addEventListener('input', (event) => updateRow(item.id, { comment: event.target.value }));
   return textarea;
 }
@@ -369,19 +372,39 @@ function createManagerMetricList(metrics, report) {
     const filled = isMetricFilled(report, metric.id);
     const row = report.rows.find((entry) => entry.id === metric.id);
     const item = document.createElement('li');
-    item.className = filled ? 'is-filled' : 'is-empty';
-    const detail = [row?.value, row?.comment].map((value) => String(value ?? '').trim()).filter(Boolean).join(' · ');
+    const status = row?.status ?? 'skipped';
+    item.className = filled ? `is-filled is-${status}` : 'is-empty';
+    const detail = getManagerMetricDetail(row, metric, filled);
     item.innerHTML = `
-      <span>${filled ? '✓' : '○'}</span>
+      <span>${status === 'issue' ? '!' : filled ? '✓' : '○'}</span>
       <div>
         <strong>${escapeHtml(metric.metric)}</strong>
-        <small>${filled ? escapeHtml(detail || 'Заполнено') : 'Не заполнено'}</small>
+        <small>${escapeHtml(detail)}</small>
       </div>
     `;
     list.append(item);
   }
 
   return list;
+}
+
+function getManagerMetricDetail(row, metric, filled) {
+  if (!filled) return 'Не заполнено';
+
+  const status = row?.status ?? 'skipped';
+  const value = String(row?.value ?? '').trim();
+  const comment = String(row?.comment ?? '').trim();
+  const parts = [];
+
+  if (metric.type === 'number') {
+    parts.push(value ? `Результат: ${value}${metric.suffix ? ` ${metric.suffix}` : ''}` : 'Результат заполнен');
+  } else {
+    parts.push(STATUS[status] ?? 'Заполнено');
+    if (value) parts.push(`Результат: ${value}`);
+  }
+
+  if (comment) parts.push(`Комментарий: ${comment}`);
+  return parts.join(' · ');
 }
 
 function getManagedEmployees(manager) {
@@ -435,7 +458,13 @@ function setReportDate(nextDate) {
 }
 
 async function saveFrequencyReport(category) {
-  persist(state.report);
+  if (isReportSubmittedForCategory(state.report, category)) {
+    showAlreadySubmittedMessage(category);
+    updateSaveButtons();
+    return;
+  }
+
+  persist(markReportSubmittedForCategory(state.report, category));
   const label = category === 'weekly' ? 'Еженедельный' : 'Ежедневный';
   const metrics = getOwnerContext().roleMetrics.filter((metric) => metric.category === category);
   const dataRows = buildDataRows(state.report, metrics);
@@ -448,6 +477,44 @@ async function saveFrequencyReport(category) {
     console.warn('Не удалось отправить данные в таблицу.', error);
     elements.saveFeedback.textContent = `${label} отчёт сохранён локально за ${state.date}, но таблица «Данные» не обновилась.`;
   }
+}
+
+function isMetricLocked(category) {
+  return isReportSubmittedForCategory(state.report, category);
+}
+
+function updateSaveButtons() {
+  updateSaveButton(elements.saveDailyButton, 'daily');
+  updateSaveButton(elements.saveWeeklyButton, 'weekly');
+}
+
+function updateSaveButton(button, category) {
+  if (!button) return;
+  const submitted = isReportSubmittedForCategory(state.report, category);
+  button.disabled = submitted;
+  button.title = submitted ? 'Данные уже заполнены за выбранный день' : '';
+  button.setAttribute('aria-disabled', String(submitted));
+}
+
+function updateSubmittedFeedback() {
+  const submittedLabels = [
+    ['daily', 'Ежедневные'],
+    ['weekly', 'Еженедельные'],
+  ]
+    .filter(([category]) => isReportSubmittedForCategory(state.report, category))
+    .map(([, label]) => label.toLowerCase());
+
+  if (submittedLabels.length === 0) {
+    elements.saveFeedback.textContent = '';
+    return;
+  }
+
+  elements.saveFeedback.textContent = `${submittedLabels.join(' и ')} данные уже заполнены за ${state.date}. Повторно отправить отчёт нельзя.`;
+}
+
+function showAlreadySubmittedMessage(category) {
+  const label = category === 'weekly' ? 'Еженедельные' : 'Ежедневные';
+  elements.saveFeedback.textContent = `${label} данные уже заполнены за ${state.date}. Повторно отправить отчёт нельзя.`;
 }
 
 elements.ownerInput.addEventListener('change', (event) => {
