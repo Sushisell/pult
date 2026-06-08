@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { loadCatalog, submitDataRows } from '../src/data-source.js';
-import { buildCsv, buildDataRows, buildReportsFromDataRows, createEmptyReport, getCompletion, getDueMetricsForDate, getReportForDate, makeReportKey, upsertReport } from '../src/storage.js';
+import { buildCsv, buildDataRows, buildReportsFromDataRows, createEmptyReport, getCompletion, getDueMetricsForDate, getReportForDate, isReportSubmittedForCategory, makeReportKey, markReportSubmittedForCategory, upsertReport } from '../src/storage.js';
 import { CHECKLIST, createCatalog, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from '../src/checklist.js';
 import { APP_VERSION } from '../src/version.js';
 
@@ -95,6 +95,21 @@ describe('daily report storage helpers', () => {
     assert.equal(metrics[0].metric, 'Проверка дашборда');
   });
 
+  it('shows metrics for every simultaneous employee position', () => {
+    const catalog = createCatalog({
+      infoRows: [{ fullName: 'Мария Совмещает', role: 'HR / Маркетинг' }],
+      metricSheets: [
+        { name: 'HR', rows: [{ frequency: 'ежедневно', metric: 'HR проверка', role: 'HR' }] },
+        { name: 'Маркетинг', rows: [{ frequency: 'ежедневно', metric: 'Маркетинг проверка', role: 'Маркетинг' }] },
+      ],
+    });
+
+    const employee = findEmployeeByFullName('Мария Совмещает', catalog.infoRows);
+    const metrics = getMetricsForRole(employee.role, catalog.checklist);
+
+    assert.deepEqual(metrics.map((metric) => metric.metric), ['HR проверка', 'Маркетинг проверка']);
+  });
+
   it('builds a catalog from external workbook data', () => {
     const catalog = createCatalog({
       infoRows: [{ fullName: 'Реальный Сотрудник', role: 'Операции', managerRole: 'Директор' }],
@@ -137,6 +152,15 @@ describe('daily report storage helpers', () => {
 
     assert.equal(getCompletion(report, catalog.checklist).done, 2);
     assert.deepEqual(buildDataRows(report, catalog.checklist), catalog.dataRows);
+    assert.equal(isReportSubmittedForCategory(report, 'daily'), true);
+  });
+
+  it('marks a report category as submitted to block repeat sends', () => {
+    const report = createEmptyReport('2026-06-01', CHECKLIST, 'Коваленко Марина Сергеевна');
+    const submitted = markReportSubmittedForCategory(report, 'daily');
+
+    assert.equal(isReportSubmittedForCategory(report, 'daily'), false);
+    assert.equal(isReportSubmittedForCategory(submitted, 'daily'), true);
   });
 
   it('loads catalog data from a configured JSON url', async () => {

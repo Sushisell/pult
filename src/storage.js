@@ -24,6 +24,7 @@ export function createEmptyReport(date = todayISO(), checklist = CHECKLIST, defa
     date,
     owner: defaultOwner,
     rows: checklist.map(createEmptyRow),
+    submittedCategories: {},
   };
 }
 
@@ -68,6 +69,10 @@ export function mergeReports(baseReports = {}, incomingReports = {}) {
           ...row,
           ...incomingRowsById.get(row.id),
         })),
+        submittedCategories: {
+          ...(current.submittedCategories ?? {}),
+          ...(report.submittedCategories ?? {}),
+        },
       },
     };
   }, baseReports);
@@ -91,7 +96,14 @@ export function buildReportsFromDataRows(dataRows = [], checklist = CHECKLIST) {
       };
     });
 
-    return upsertReport(reports, { ...report, rows });
+    return upsertReport(reports, {
+      ...report,
+      rows,
+      submittedCategories: {
+        ...(report.submittedCategories ?? {}),
+        [metric.category]: true,
+      },
+    });
   }, {});
 }
 
@@ -141,6 +153,20 @@ export function getCompletion(report, metrics = CHECKLIST) {
     issues,
     skipped: rows.filter((row) => !isRowFilled(row)).length,
     percent: total === 0 ? 0 : Math.round((done / total) * 100),
+  };
+}
+
+export function isReportSubmittedForCategory(report, category) {
+  return Boolean(report?.submittedCategories?.[category]);
+}
+
+export function markReportSubmittedForCategory(report, category) {
+  return {
+    ...report,
+    submittedCategories: {
+      ...(report.submittedCategories ?? {}),
+      [category]: true,
+    },
   };
 }
 

@@ -175,9 +175,9 @@ export function findEmployeeByFullName(fullName, infoRows = INFO_ROWS) {
 }
 
 export function getMetricsForRole(role, checklist = CHECKLIST) {
-  const normalizedRole = normalizeText(role);
-  if (!normalizedRole) return [];
-  return checklist.filter((item) => roleMatches(normalizedRole, item.role));
+  const employeeRoles = splitRoleAliases(role);
+  if (employeeRoles.length === 0) return [];
+  return checklist.filter((item) => roleMatches(employeeRoles, item.role));
 }
 
 export function groupMetricsByFrequency(metrics) {
@@ -188,9 +188,9 @@ export function groupMetricsByFrequency(metrics) {
 }
 
 
-function roleMatches(normalizedRole, metricRole) {
+function roleMatches(employeeRoles, metricRole) {
   const metricRoles = splitRoleAliases(metricRole);
-  return metricRoles.includes(normalizedRole);
+  return employeeRoles.some((employeeRole) => metricRoles.includes(employeeRole));
 }
 
 function splitRoleAliases(role) {

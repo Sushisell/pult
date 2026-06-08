@@ -323,6 +323,13 @@ textarea {
   background: #e23862;
 }
 
+.save-button:disabled,
+.save-button[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.58;
+  box-shadow: none;
+}
+
 .save-button-secondary {
   color: #ef476f;
   border: 1px solid rgb(239 71 111 / 36%);
@@ -545,6 +552,17 @@ textarea {
 
 .manager-metric-list li.is-filled {
   color: #21865d;
+}
+
+.manager-metric-list li.is-issue {
+  border-radius: 4px;
+  padding: 8px;
+  color: #9a6a00;
+  background: #fff7d8;
+}
+
+.manager-metric-list li.is-issue small {
+  color: #755100;
 }
 
 .manager-metric-list strong,
