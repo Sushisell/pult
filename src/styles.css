@@ -490,8 +490,9 @@ textarea {
 }
 
 .manager-card {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   justify-content: space-between;
   gap: 16px;
   border: 1px solid #e4e7ee;
@@ -523,10 +524,47 @@ textarea {
   font-size: 1rem;
 }
 
+.manager-metric-list {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 0 0;
+  list-style: none;
+}
+
+.manager-metric-list li {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  color: #838796;
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.manager-metric-list li.is-filled {
+  color: #21865d;
+}
+
+.manager-metric-list strong,
+.manager-metric-list small {
+  display: block;
+}
+
+.manager-metric-list strong {
+  color: inherit;
+  font-size: 0.78rem;
+}
+
+.manager-metric-list small {
+  margin-top: 2px;
+  color: #838796;
+}
+
 @media (max-width: 760px) {
   .manager-card {
-    align-items: flex-start;
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
 
   .manager-status {

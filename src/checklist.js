@@ -149,11 +149,12 @@ export const STATUS = {
   skipped: 'Не проверено',
 };
 
-export function createCatalog({ infoRows = INFO_ROWS, metricSheets = METRIC_SHEETS } = {}) {
+export function createCatalog({ infoRows = INFO_ROWS, metricSheets = METRIC_SHEETS, dataRows = [] } = {}) {
   return {
     infoRows: normalizeInfoRows(infoRows),
     metricSheets: normalizeMetricSheets(metricSheets),
     checklist: createChecklist(metricSheets),
+    dataRows: normalizeDataRows(dataRows),
   };
 }
 
@@ -227,13 +228,34 @@ function normalizeMetricRows(rows) {
       goal: String(row.goal ?? row['Цель'] ?? '').trim(),
       role: String(row.role ?? row['Должность ответственного'] ?? row['Роль'] ?? '').trim(),
       managerRole: String(row.managerRole ?? row.dashboardManagerRole ?? row['Руководитель для дашборда'] ?? row['Роль руководителя'] ?? '').trim(),
-      reportFormat: String(row.reportFormat ?? row['Формат отчёта'] ?? row.description ?? row['Описание'] ?? 'Проверено / не проверено').trim(),
-      type: String(row.type ?? row['Тип'] ?? 'checkbox').trim(),
+      reportFormat: String(row.reportFormat ?? row['Формат отчёта'] ?? row.description ?? row['Описание'] ?? row.classification ?? row['Классификация'] ?? 'Проверено / не проверено').trim(),
+      classification: String(row.classification ?? row['Классификация'] ?? row['Классификация метрики'] ?? row.type ?? row['Тип'] ?? '').trim(),
+      type: getMetricType(row),
       placeholder: row.placeholder ?? row['Плейсхолдер'] ?? undefined,
       suffix: row.suffix ?? row['Суффикс'] ?? undefined,
       sourceRow: row.sourceRow ?? row['Строка'] ?? undefined,
     }))
     .filter((row) => row.frequency && row.metric && row.role);
+}
+
+function normalizeDataRows(dataRows) {
+  return dataRows
+    .map((row) => ({
+      date: String(row.date ?? row['Дата'] ?? '').trim(),
+      owner: String(row.owner ?? row.fullName ?? row['ФИО'] ?? '').trim(),
+      metric: String(row.metric ?? row['Метрика'] ?? '').trim(),
+      value: String(row.value ?? row['Значение'] ?? '').trim(),
+      comment: String(row.comment ?? row['Комментарий'] ?? '').trim(),
+    }))
+    .filter((row) => row.date && row.owner && row.metric);
+}
+
+function getMetricType(row) {
+  const rawType = String(row.type ?? row['Тип'] ?? '').trim();
+  const classification = normalizeText(row.classification ?? row['Классификация'] ?? row['Классификация метрики'] ?? rawType);
+  if (classification === 'ввод числа' || classification === 'number') return 'number';
+  if (classification === 'проверено' || classification === 'checkbox') return 'checkbox';
+  return rawType || 'checkbox';
 }
 
 function getFrequencyCategory(frequency) {
