@@ -274,6 +274,11 @@ textarea:focus {
   border-color: #dfeee7;
 }
 
+.check-row.is-fixed {
+  border-color: #f0d77b;
+  background: #fff9e6;
+}
+
 .check-row.is-issue,
 .check-row.is-number {
   border-color: #c65d73;
@@ -341,6 +346,15 @@ textarea:focus {
   border-color: #29a66f;
   box-shadow: inset 0 0 0 3px #ffffff;
   background: #29a66f;
+}
+
+.status-option.is-fixed {
+  color: #9a6a00;
+}
+
+.status-option.is-fixed input:checked {
+  border-color: #f2b705;
+  background: #f2b705;
 }
 
 .status-option.is-issue {
@@ -631,15 +645,28 @@ textarea {
   color: #21865d;
 }
 
+.manager-metric-list li.is-fixed,
 .manager-metric-list li.is-issue {
   border-radius: 4px;
   padding: 8px;
+}
+
+.manager-metric-list li.is-fixed {
   color: #9a6a00;
   background: #fff7d8;
 }
 
-.manager-metric-list li.is-issue small {
+.manager-metric-list li.is-fixed small {
   color: #755100;
+}
+
+.manager-metric-list li.is-issue {
+  color: #b33d57;
+  background: #fff3f4;
+}
+
+.manager-metric-list li.is-issue small {
+  color: #823044;
 }
 
 .manager-metric-list strong,
@@ -655,6 +682,11 @@ textarea {
 .manager-metric-list small {
   margin-top: 2px;
   color: #838796;
+}
+
+.manager-metric-list .manager-deadline {
+  color: #4b5568;
+  font-weight: 800;
 }
 
 @media (max-width: 760px) {

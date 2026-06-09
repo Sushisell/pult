@@ -158,7 +158,7 @@ describe('daily report storage helpers', () => {
       metricSheets: [{
         name: 'Операции',
         rows: [
-          { frequency: 'ежедневно', metric: 'Проверить смену', description: 'Сверить все открытые смены', goal: 'Нет незакрытых смен', role: 'Операции', managerRole: 'Директор' },
+          { frequency: 'ежедневно', metric: 'Проверить смену', description: 'Сверить все открытые смены', goal: 'Нет незакрытых смен', deadline: '18:00', role: 'Операции', managerRole: 'Директор' },
           { frequency: 'ежемесячно', metric: 'Собрать отчёт', role: 'Операции' },
         ],
       }],
@@ -169,6 +169,7 @@ describe('daily report storage helpers', () => {
     assert.equal(catalog.checklist.length, 2);
     assert.equal(catalog.checklist[0].description, 'Сверить все открытые смены');
     assert.equal(catalog.checklist[0].goal, 'Нет незакрытых смен');
+    assert.equal(catalog.checklist[0].deadline, '18:00');
     assert.equal(catalog.checklist[0].managerRole, 'Директор');
     assert.equal(createCatalog({ metricSheets: [{ name: 'Типы', rows: [{ frequency: 'ежедневно', metric: 'Число', role: 'Операции', classification: 'Ввод числа' }] }] }).checklist[0].type, 'number');
     assert.deepEqual(groupMetricsByFrequency(catalog.checklist).map((group) => group.id), ['daily', 'monthly']);
@@ -185,7 +186,7 @@ describe('daily report storage helpers', () => {
         ],
       }],
       dataRows: [
-        { date: '2026-06-01', owner: 'Мария Реальная', metric: 'Проверить чек-листы', value: 'Проверено', comment: 'Ок' },
+        { date: '2026-06-01', owner: 'Мария Реальная', metric: 'Проверить чек-листы', value: 'Все ок', comment: 'Ок' },
         { date: '2026-06-01', owner: 'Мария Реальная', metric: 'Количество ошибок', value: '3', comment: 'Исправляем' },
       ],
     });
@@ -195,6 +196,31 @@ describe('daily report storage helpers', () => {
     assert.equal(getCompletion(report, catalog.checklist).done, 2);
     assert.deepEqual(buildDataRows(report, catalog.checklist), catalog.dataRows);
     assert.equal(isReportSubmittedForCategory(report, 'daily'), true);
+  });
+
+
+
+  it('maps checked answers to green, yellow and red stored values', () => {
+    const catalog = createCatalog({
+      infoRows: [{ fullName: 'Мария Реальная', role: 'Контроль качества' }],
+      metricSheets: [{
+        name: 'Контроль качества',
+        rows: [{ frequency: 'ежедневно', metric: 'Проверить чек-листы', role: 'Контроль качества', classification: 'Проверено' }],
+      }],
+      dataRows: [
+        { date: '2026-06-01', owner: 'Мария Реальная', metric: 'Проверить чек-листы', value: 'Найдены ошибки, исправлены', comment: '' },
+        { date: '2026-06-02', owner: 'Мария Реальная', metric: 'Проверить чек-листы', value: 'Нельзя исправить ошибку', comment: '' },
+      ],
+    });
+
+    const reports = buildReportsFromDataRows(catalog.dataRows, catalog.checklist);
+    const fixedReport = getReportForDate(reports, '2026-06-01', catalog.checklist, 'Мария Реальная');
+    const issueReport = getReportForDate(reports, '2026-06-02', catalog.checklist, 'Мария Реальная');
+
+    assert.equal(fixedReport.rows[0].status, 'fixed');
+    assert.equal(issueReport.rows[0].status, 'issue');
+    assert.deepEqual(buildDataRows(fixedReport, catalog.checklist), [catalog.dataRows[0]]);
+    assert.deepEqual(buildDataRows(issueReport, catalog.checklist), [catalog.dataRows[1]]);
   });
 
   it('marks a report category as submitted to block repeat sends', () => {
@@ -260,7 +286,7 @@ describe('daily report storage helpers', () => {
 
   it('submits Data sheet rows to a writable endpoint', async () => {
     let request;
-    const result = await submitDataRows([{ date: '2026-06-01', owner: 'Анна', metric: 'Метрика', value: 'Проверено', comment: '' }], {
+    const result = await submitDataRows([{ date: '2026-06-01', owner: 'Анна', metric: 'Метрика', value: 'Все ок', comment: '' }], {
       dataUrl: 'https://script.google.com/macros/s/example/exec',
       fetchImpl: async (url, options) => {
         request = { url, options };
@@ -280,7 +306,7 @@ describe('daily report storage helpers', () => {
 
     assert.match(csv, /Дата,ФИО,Роль,Периодичность,Лист/);
     assert.match(csv, /Тестовый Сотрудник HR,HR,Ежедневно,HR/);
-    assert.match(csv, /Всё ок/);
+    assert.match(csv, /Все ок/);
   });
 
   it('does not export a default status for unanswered legacy rows', () => {

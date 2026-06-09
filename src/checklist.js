@@ -17,8 +17,9 @@ export const METRIC_SHEETS = [];
 export const CHECKLIST = createChecklist(METRIC_SHEETS);
 
 export const STATUS = {
-  done: 'Всё ок',
-  issue: 'Найдены проблемы',
+  done: 'Все ок',
+  fixed: 'Найдены ошибки, исправлены',
+  issue: 'Нельзя исправить ошибку',
 };
 
 export function createCatalog({ infoRows = INFO_ROWS, metricSheets = METRIC_SHEETS, dataRows = [] } = {}) {
@@ -145,6 +146,7 @@ function normalizeMetricRows(rows) {
       metric: String(row.metric ?? row['Метрика'] ?? '').trim(),
       description: String(row.description ?? row['Описание'] ?? row.reportFormat ?? row['Формат отчёта'] ?? '').trim(),
       goal: String(row.goal ?? row['Цель'] ?? '').trim(),
+      deadline: String(row.deadline ?? row.dueDate ?? row['Срок сдачи'] ?? row['Дедлайн'] ?? '').trim(),
       role: String(row.role ?? row['Должность ответственного'] ?? row['Роль'] ?? '').trim(),
       managerRole: String(row.managerRole ?? row.dashboardManagerRole ?? row['Руководитель для дашборда'] ?? row['Роль руководителя'] ?? '').trim(),
       reportFormat: String(row.reportFormat ?? row['Формат отчёта'] ?? row.description ?? row['Описание'] ?? row.classification ?? row['Классификация'] ?? 'Проверено / не проверено').trim(),
