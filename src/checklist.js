@@ -19,7 +19,6 @@ export const CHECKLIST = createChecklist(METRIC_SHEETS);
 export const STATUS = {
   done: 'Всё ок',
   issue: 'Найдены проблемы',
-  skipped: 'Не проверено',
 };
 
 export function createCatalog({ infoRows = INFO_ROWS, metricSheets = METRIC_SHEETS, dataRows = [] } = {}) {

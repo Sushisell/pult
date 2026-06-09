@@ -28,6 +28,88 @@ textarea {
   font: inherit;
 }
 
+body.is-loading .app-header,
+body.is-loading .app-shell {
+  display: none;
+}
+
+.loading-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+}
+
+.loading-screen[hidden] {
+  display: none;
+}
+
+.loading-card {
+  width: min(420px, 100%);
+  border: 1px solid #ebedf3;
+  border-radius: 8px;
+  padding: 32px 28px;
+  background: #ffffff;
+  box-shadow: 0 18px 46px rgb(42 48 70 / 9%);
+  text-align: center;
+}
+
+.loading-mark {
+  position: relative;
+  display: inline-flex;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 18px;
+  border-radius: 50%;
+  background: #fff3f6;
+}
+
+.loading-mark::before,
+.loading-mark::after {
+  content: "";
+  position: absolute;
+  inset: 11px;
+  border: 3px solid rgb(239 71 111 / 18%);
+  border-top-color: #ef476f;
+  border-radius: 50%;
+  animation: loading-spin 0.9s linear infinite;
+}
+
+.loading-mark::after {
+  inset: 19px;
+  border-width: 2px;
+  border-top-color: #15162c;
+  animation-direction: reverse;
+  animation-duration: 0.7s;
+}
+
+.loading-eyebrow {
+  margin: 0 0 8px;
+  color: #ef476f;
+  font-size: 0.74rem;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.loading-card h1 {
+  margin-bottom: 10px;
+  font-size: 1.25rem;
+}
+
+.loading-card p:last-child {
+  margin: 0;
+  color: #838796;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .app-header {
   width: min(1180px, calc(100% - 56px));
   height: 58px;
@@ -405,11 +487,6 @@ textarea {
 
 .status-option.is-done {
   color: #21865d;
-}
-
-.status-option.is-skipped input:checked {
-  border-color: #9aa0ad;
-  background: #9aa0ad;
 }
 
 .frequency-group {

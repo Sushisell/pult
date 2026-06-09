@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { loadCatalog, submitDataRows } from '../src/data-source.js';
-import { buildCsv, buildDataRows, buildReportsFromDataRows, createEmptyReport, getCompletion, getDueMetricsForDate, getReportForDate, isReportSubmittedForCategory, makeReportKey, markReportSubmittedForCategory, upsertReport } from '../src/storage.js';
+import { areAllMetricsSubmitted, buildCsv, buildDataRows, buildReportsFromDataRows, createEmptyReport, getCompletion, getDueMetricsForDate, getPendingFilledMetrics, getReportForDate, isMetricSubmitted, isReportSubmittedForCategory, makeReportKey, markReportMetricsSubmitted, markReportSubmittedForCategory, upsertReport } from '../src/storage.js';
 import { CHECKLIST, createCatalog, createChecklist, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from '../src/checklist.js';
 import { APP_VERSION } from '../src/version.js';
 
@@ -30,6 +30,7 @@ describe('daily report storage helpers', () => {
 
     assert.equal(report.date, '2026-06-01');
     assert.equal(report.rows.length, CHECKLIST.length);
+    assert.ok(report.rows.every((row) => row.status === ''));
     assert.equal(getCompletion(report).percent, 0);
   });
 
@@ -204,6 +205,25 @@ describe('daily report storage helpers', () => {
     assert.equal(isReportSubmittedForCategory(submitted, 'daily'), true);
   });
 
+
+  it('submits only filled metrics and lets the rest be completed later', () => {
+    const report = createEmptyReport('2026-06-01', TEST_CHECKLIST, 'Тестовый Сотрудник HR');
+    report.rows.find((row) => row.id === TEST_CHECKLIST[0].id).status = 'done';
+
+    const firstPendingMetrics = getPendingFilledMetrics(report, TEST_CHECKLIST);
+    const afterFirstSubmit = markReportMetricsSubmitted(report, firstPendingMetrics);
+
+    assert.deepEqual(firstPendingMetrics.map((metric) => metric.id), [TEST_CHECKLIST[0].id]);
+    assert.equal(isMetricSubmitted(afterFirstSubmit, TEST_CHECKLIST[0].id), true);
+    assert.equal(isMetricSubmitted(afterFirstSubmit, TEST_CHECKLIST[1].id), false);
+    assert.equal(areAllMetricsSubmitted(afterFirstSubmit, TEST_CHECKLIST), false);
+
+    afterFirstSubmit.rows.find((row) => row.id === TEST_CHECKLIST[1].id).comment = 'Дозаполнили позже';
+    const nextPendingMetrics = getPendingFilledMetrics(afterFirstSubmit, TEST_CHECKLIST);
+
+    assert.deepEqual(nextPendingMetrics.map((metric) => metric.id), [TEST_CHECKLIST[1].id]);
+  });
+
   it('keeps catalog empty when the table cannot be loaded', async () => {
     const catalog = await loadCatalog({
       dataUrl: '/missing-workbook.json',
@@ -262,6 +282,21 @@ describe('daily report storage helpers', () => {
     assert.match(csv, /Тестовый Сотрудник HR,HR,Ежедневно,HR/);
     assert.match(csv, /Всё ок/);
   });
+
+  it('does not export a default status for unanswered legacy rows', () => {
+    const reports = {
+      [makeReportKey('2026-06-01', 'Тестовый Сотрудник HR')]: {
+        date: '2026-06-01',
+        owner: 'Тестовый Сотрудник HR',
+        rows: [{ id: TEST_CATALOG.checklist[0].id, status: 'skipped', value: '', comment: '', updatedAt: '' }],
+      },
+    };
+    const report = getReportForDate(reports, '2026-06-01', TEST_CATALOG.checklist, 'Тестовый Сотрудник HR');
+    const csv = buildCsv(upsertReport({}, report), TEST_CATALOG);
+
+    assert.equal(report.rows[0].status, '');
+    assert.doesNotMatch(csv, /skipped|Не проверено/);
+  });
 });
 
 describe('application version', () => {
@@ -274,5 +309,7 @@ describe('application version', () => {
 
     assert.equal(APP_VERSION, packageVersion);
     assert.match(indexHtml, new RegExp(`id="app-version"[^>]*>v${packageVersion}</span>`));
+    assert.match(indexHtml, /class="is-loading"/);
+    assert.match(indexHtml, /id="loading-screen"/);
   });
 });

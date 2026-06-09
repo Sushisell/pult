@@ -9,10 +9,12 @@ import {
   getCompletion,
   getDueMetricsForDate,
   getReportForDate,
+  areAllMetricsSubmitted,
+  getPendingFilledMetrics,
   isMetricFilled,
-  isReportSubmittedForCategory,
+  isMetricSubmitted,
   loadReports,
-  markReportSubmittedForCategory,
+  markReportMetricsSubmitted,
   mergeReports,
   saveReports,
   todayISO,
@@ -32,6 +34,7 @@ const state = {
 
 const elements = {
   appVersion: document.querySelector('#app-version'),
+  loadingScreen: document.querySelector('#loading-screen'),
   dateInput: document.querySelector('#date-input'),
   ownerInput: document.querySelector('#owner-input'),
   dateError: document.querySelector('#date-error'),
@@ -240,7 +243,7 @@ function createControlCell(item, row) {
     input.type = 'number';
     input.value = row.value;
     input.placeholder = item.placeholder ?? '0';
-    input.disabled = isMetricLocked(item.category);
+    input.disabled = isMetricLocked(item);
     input.addEventListener('input', (event) => updateRow(item.id, { value: event.target.value }));
     const suffix = document.createElement('span');
     suffix.textContent = item.suffix;
@@ -260,7 +263,7 @@ function createControlCell(item, row) {
     input.name = `status-${item.id}`;
     input.value = value;
     input.checked = row.status === value;
-    input.disabled = isMetricLocked(item.category);
+    input.disabled = isMetricLocked(item);
     input.addEventListener('change', () => updateRow(item.id, { status: value }));
     const text = document.createElement('span');
     text.textContent = label;
@@ -277,7 +280,7 @@ function createCommentField(item, row) {
   textarea.className = 'metric-comment';
   textarea.placeholder = item.placeholder ?? 'Комментарий к метрике';
   textarea.value = row.comment;
-  textarea.disabled = isMetricLocked(item.category);
+  textarea.disabled = isMetricLocked(item);
   textarea.addEventListener('input', (event) => updateRow(item.id, { comment: event.target.value }));
   return textarea;
 }
@@ -370,8 +373,8 @@ function createManagerMetricList(metrics, report) {
     const filled = isMetricFilled(report, metric.id);
     const row = report.rows.find((entry) => entry.id === metric.id);
     const item = document.createElement('li');
-    const status = row?.status ?? 'skipped';
-    item.className = filled ? `is-filled is-${status}` : 'is-empty';
+    const status = row?.status ?? '';
+    item.className = filled && status ? `is-filled is-${status}` : filled ? 'is-filled' : 'is-empty';
     const detail = getManagerMetricDetail(row, metric, filled);
     item.innerHTML = `
       <span>${status === 'issue' ? '!' : filled ? '✓' : '○'}</span>
@@ -389,7 +392,7 @@ function createManagerMetricList(metrics, report) {
 function getManagerMetricDetail(row, metric, filled) {
   if (!filled) return 'Не заполнено';
 
-  const status = row?.status ?? 'skipped';
+  const status = row?.status ?? '';
   const value = String(row?.value ?? '').trim();
   const comment = String(row?.comment ?? '').trim();
   const parts = [];
@@ -457,12 +460,6 @@ function setReportDate(nextDate) {
 }
 
 async function saveFrequencyReport(category) {
-  if (isReportSubmittedForCategory(state.report, category)) {
-    showAlreadySubmittedMessage(category);
-    updateSaveButtons();
-    return;
-  }
-
   const context = getOwnerContext();
   const metrics = context.roleMetrics.filter((metric) => metric.category === category);
   if (!context.employee || metrics.length === 0) {
@@ -471,22 +468,34 @@ async function saveFrequencyReport(category) {
     return;
   }
 
-  persist(markReportSubmittedForCategory(state.report, category));
+  const pendingMetrics = getPendingFilledMetrics(state.report, metrics);
   const label = category === 'weekly' ? 'Еженедельный' : 'Ежедневный';
-  const dataRows = buildDataRows(state.report, metrics);
+
+  if (pendingMetrics.length === 0) {
+    elements.saveFeedback.textContent = areAllMetricsSubmitted(state.report, metrics)
+      ? `${label} отчёт уже полностью сохранён за ${state.date}.`
+      : `Заполните хотя бы одну новую метрику, чтобы сохранить ${label.toLowerCase()} отчёт. Остальные можно дозаполнить позже.`;
+    updateSaveButtons();
+    return;
+  }
+
+  const dataRows = buildDataRows(state.report, pendingMetrics);
 
   try {
     const result = await submitDataRows(dataRows);
+    persist(markReportMetricsSubmitted(state.report, pendingMetrics));
     const remoteNote = result.skipped ? '' : ' Данные отправлены на лист «Данные».';
-    elements.saveFeedback.textContent = `${label} отчёт сохранён за ${state.date}.${remoteNote}`;
+    const leftCount = metrics.length - getCompletion(state.report, metrics).done;
+    const laterNote = leftCount > 0 ? ` Осталось ${leftCount}; их можно дозаполнить позже.` : '';
+    elements.saveFeedback.textContent = `${label} отчёт сохранён за ${state.date}: ${pendingMetrics.length} метрик.${remoteNote}${laterNote}`;
   } catch (error) {
     console.warn('Не удалось отправить данные в таблицу.', error);
-    elements.saveFeedback.textContent = `${label} отчёт сохранён локально за ${state.date}, но таблица «Данные» не обновилась.`;
+    elements.saveFeedback.textContent = `${label} отчёт сохранён локально за ${state.date}, но таблица «Данные» не обновилась. Можно повторить сохранение позже.`;
   }
 }
 
-function isMetricLocked(category) {
-  return isReportSubmittedForCategory(state.report, category);
+function isMetricLocked(item) {
+  return isMetricSubmitted(state.report, item.id);
 }
 
 function updateSaveButtons() {
@@ -497,34 +506,23 @@ function updateSaveButtons() {
 function updateSaveButton(button, category) {
   if (!button) return;
   const { employee, roleMetrics } = getOwnerContext();
-  const submitted = isReportSubmittedForCategory(state.report, category);
-  const hasMetrics = Boolean(employee) && roleMetrics.some((metric) => metric.category === category);
-  button.disabled = submitted || !hasMetrics;
-  button.title = submitted
-    ? 'Данные уже заполнены за выбранный день'
-    : hasMetrics ? '' : 'Данные из таблицы не загружены или нет метрик для выбранного ФИО';
+  const metrics = roleMetrics.filter((metric) => metric.category === category);
+  const hasMetrics = Boolean(employee) && metrics.length > 0;
+  const pendingMetrics = getPendingFilledMetrics(state.report, metrics);
+  const submitted = areAllMetricsSubmitted(state.report, metrics);
+  button.disabled = !hasMetrics || pendingMetrics.length === 0;
+  button.title = !hasMetrics
+    ? 'Данные из таблицы не загружены или нет метрик для выбранного ФИО'
+    : submitted
+      ? 'Все метрики уже сохранены за выбранный день'
+      : pendingMetrics.length > 0 ? '' : 'Заполните хотя бы одну новую метрику — остальные можно дозаполнить позже';
   button.setAttribute('aria-disabled', String(button.disabled));
 }
 
 function updateSubmittedFeedback() {
-  const submittedLabels = [
-    ['daily', 'Ежедневные'],
-    ['weekly', 'Еженедельные'],
-  ]
-    .filter(([category]) => isReportSubmittedForCategory(state.report, category))
-    .map(([, label]) => label.toLowerCase());
-
-  if (submittedLabels.length === 0) {
+  if (!elements.saveFeedback.textContent.includes('уже полностью сохранён')) {
     elements.saveFeedback.textContent = '';
-    return;
   }
-
-  elements.saveFeedback.textContent = `${submittedLabels.join(' и ')} данные уже заполнены за ${state.date}. Повторно отправить отчёт нельзя.`;
-}
-
-function showAlreadySubmittedMessage(category) {
-  const label = category === 'weekly' ? 'Еженедельные' : 'Ежедневные';
-  elements.saveFeedback.textContent = `${label} данные уже заполнены за ${state.date}. Повторно отправить отчёт нельзя.`;
 }
 
 elements.ownerInput.addEventListener('change', (event) => {
@@ -560,18 +558,25 @@ function hasCatalogOwner(owner) {
 }
 
 async function hydrateCatalog() {
-  state.catalog = await loadCatalog();
-  const sheetReports = buildReportsFromDataRows(state.catalog.dataRows, state.catalog.checklist);
-  state.reports = mergeReports(sheetReports, state.reports);
-  saveReports(state.reports);
-  const defaultOwner = getDefaultOwner();
-  const selectedOwner = hasCatalogOwner(state.report?.owner) ? state.report.owner : defaultOwner;
-  state.report = getReportForDate(state.reports, state.date, state.catalog.checklist, selectedOwner);
-  if (!state.report.owner && defaultOwner) state.report.owner = defaultOwner;
-  refreshOwnerOptions();
-  render();
+  try {
+    state.catalog = await loadCatalog();
+    const sheetReports = buildReportsFromDataRows(state.catalog.dataRows, state.catalog.checklist);
+    state.reports = mergeReports(sheetReports, state.reports);
+    saveReports(state.reports);
+    const defaultOwner = getDefaultOwner();
+    const selectedOwner = hasCatalogOwner(state.report?.owner) ? state.report.owner : defaultOwner;
+    state.report = getReportForDate(state.reports, state.date, state.catalog.checklist, selectedOwner);
+    if (!state.report.owner && defaultOwner) state.report.owner = defaultOwner;
+    refreshOwnerOptions();
+    render();
+  } finally {
+    hideLoadingScreen();
+  }
 }
 
-refreshOwnerOptions();
-render();
+function hideLoadingScreen() {
+  document.body.classList.remove('is-loading');
+  if (elements.loadingScreen) elements.loadingScreen.hidden = true;
+}
+
 hydrateCatalog();
