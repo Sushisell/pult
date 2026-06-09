@@ -179,24 +179,24 @@ body.is-loading .app-shell {
 }
 
 .app-shell {
-  width: min(720px, calc(100% - 56px));
+  width: min(1180px, calc(100% - 56px));
   margin: 26px auto 58px;
 }
 
 .panel {
-  border: 1px solid #ebedf3;
-  border-radius: 5px;
-  background: #ffffff;
-  box-shadow: 0 10px 30px rgb(42 48 70 / 5%);
+  border: 1px solid rgb(228 231 238 / 85%);
+  border-radius: 18px;
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 18px 50px rgb(42 48 70 / 8%);
 }
 
 .ident-panel {
-  padding: 22px 20px 20px;
+  padding: 24px 28px;
 }
 
 .checks-panel {
   margin-top: 20px;
-  padding: 22px 20px 20px;
+  padding: 26px 28px 28px;
 }
 
 h1,
@@ -255,19 +255,28 @@ textarea:focus {
 
 .checklist-list {
   display: grid;
-  gap: 20px;
+  gap: 24px;
 }
 
 .check-row {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 20px;
-  align-items: center;
-  min-height: 72px;
+  grid-template-columns: minmax(220px, 0.85fr) minmax(420px, 1.6fr);
+  gap: 26px;
+  align-items: start;
+  min-height: 120px;
   border: 1px solid #e4e7ee;
-  border-radius: 5px;
-  padding: 16px;
-  background: #ffffff;
+  border-radius: 18px;
+  padding: 26px;
+  background: linear-gradient(180deg, #ffffff, #fbfcff);
+  box-shadow: 0 12px 32px rgb(42 48 70 / 6%);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.check-row:hover {
+  border-color: #cfd5e4;
+  box-shadow: 0 18px 44px rgb(42 48 70 / 9%);
+  transform: translateY(-1px);
 }
 
 .check-row.is-done {
@@ -276,33 +285,73 @@ textarea:focus {
 
 .check-row.is-fixed {
   border-color: #f0d77b;
-  background: #fff9e6;
+  background: linear-gradient(180deg, #fffdf4, #fff8df);
 }
 
-.check-row.is-issue,
+.check-row.is-issue {
+  border-color: #ef9aad;
+  background: linear-gradient(180deg, #fff8fa, #fff0f3);
+}
+
 .check-row.is-number {
-  border-color: #c65d73;
-  background: #fff3f4;
+  border-color: #ead4dc;
+  background: linear-gradient(180deg, #ffffff, #fff8fa);
+}
+
+.check-row.is-locked {
+  border-style: dashed;
+  background: linear-gradient(180deg, #fbfcff, #f7f9fd);
 }
 
 .metric-title {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 10px;
   color: #252737;
-  font-size: 0.88rem;
-  font-weight: 850;
+  font-size: 1.02rem;
+  font-weight: 900;
+  line-height: 1.16;
 }
 
 .metric-format,
 .metric-goal {
   display: block;
-  color: #838796;
-  font-size: 0.78rem;
-  line-height: 1.35;
+  color: #767b8c;
+  font-size: 0.9rem;
+  line-height: 1.45;
 }
 
 .metric-goal {
   margin-top: 3px;
+}
+
+.metric-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.metric-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: #586072;
+  background: #f1f4f9;
+  font-size: 0.74rem;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.metric-badge-success {
+  color: #21865d;
+  background: #eaf8f1;
+}
+
+.metric-badge-muted {
+  color: #70778a;
+  background: #f6f7fb;
 }
 
 .field-error {
@@ -313,43 +362,76 @@ textarea:focus {
 }
 
 .status-toggle {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
 }
 
 .status-option {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 9px;
+  min-height: 46px;
+  border: 1px solid #e1e5ee;
+  border-radius: 14px;
+  padding: 10px 12px;
   color: #444755;
-  font-size: 0.78rem;
-  font-weight: 800;
-  white-space: nowrap;
+  background: #ffffff;
+  font-size: 0.84rem;
+  font-weight: 850;
+  line-height: 1.2;
   cursor: pointer;
+  user-select: none;
+  white-space: normal;
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
 }
 
 .status-option input {
   appearance: none;
-  width: 12px;
-  height: 12px;
-  min-height: 12px;
-  border: 1px solid #9aa0ad;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  border: 2px solid #a5acba;
   border-radius: 50%;
   padding: 0;
   background: #ffffff;
   cursor: pointer;
 }
 
+.status-option:has(input:checked) {
+  border-color: #29a66f;
+  background: #f0fbf6;
+  box-shadow: 0 8px 18px rgb(41 166 111 / 12%);
+}
+
+.status-option.is-selected {
+  border-color: #29a66f;
+  background: #f0fbf6;
+  box-shadow: 0 8px 18px rgb(41 166 111 / 12%);
+}
+
 .status-option input:checked {
   border-color: #29a66f;
-  box-shadow: inset 0 0 0 3px #ffffff;
+  box-shadow: inset 0 0 0 4px #ffffff;
   background: #29a66f;
 }
 
 .status-option.is-fixed {
   color: #9a6a00;
+}
+
+.status-option.is-fixed:has(input:checked) {
+  border-color: #f2b705;
+  background: #fff9e6;
+  box-shadow: 0 8px 18px rgb(242 183 5 / 14%);
+}
+
+.status-option.is-fixed.is-selected {
+  border-color: #f2b705;
+  background: #fff9e6;
+  box-shadow: 0 8px 18px rgb(242 183 5 / 14%);
 }
 
 .status-option.is-fixed input:checked {
@@ -361,9 +443,35 @@ textarea:focus {
   color: #b33d57;
 }
 
+.status-option.is-issue:has(input:checked) {
+  border-color: #ef476f;
+  background: #fff3f6;
+  box-shadow: 0 8px 18px rgb(239 71 111 / 14%);
+}
+
+.status-option.is-issue.is-selected {
+  border-color: #ef476f;
+  background: #fff3f6;
+  box-shadow: 0 8px 18px rgb(239 71 111 / 14%);
+}
+
 .status-option.is-issue input:checked {
   border-color: #ef476f;
   background: #ef476f;
+}
+
+.status-option:has(input:disabled) {
+  cursor: not-allowed;
+}
+
+.status-option input:disabled {
+  cursor: not-allowed;
+}
+
+.status-option:has(input:disabled),
+.status-option.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
 }
 
 .inline-field {
@@ -385,8 +493,13 @@ textarea:focus {
 }
 
 textarea {
-  min-height: 54px;
+  min-height: 74px;
   resize: vertical;
+}
+
+.metric-comment {
+  border-radius: 14px;
+  padding: 12px 14px;
 }
 
 .save-actions {
@@ -471,6 +584,14 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .check-row {
+    padding: 20px;
+  }
+
+  .status-toggle {
+    grid-template-columns: 1fr;
+  }
+
   .brand {
     min-width: 0;
   }
@@ -525,8 +646,9 @@ textarea {
 
 .control-stack {
   display: grid;
-  gap: 10px;
-  min-width: 260px;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
 }
 
 .empty {
@@ -551,7 +673,7 @@ textarea {
 .frequency-filter {
   border: 1px solid #dfe2ea;
   border-radius: 999px;
-  padding: 8px 12px;
+  padding: 12px 18px;
   color: #444755;
   background: #ffffff;
   font-size: 0.78rem;
