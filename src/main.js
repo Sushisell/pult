@@ -1,6 +1,6 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.4';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.4';
-import { APP_VERSION } from './version.js?v=0.1.4';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.5';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.5';
+import { APP_VERSION } from './version.js?v=0.1.5';
 import {
   buildCsv,
   buildDataRows,
@@ -19,7 +19,7 @@ import {
   saveReports,
   todayISO,
   upsertReport,
-} from './storage.js?v=0.1.4';
+} from './storage.js?v=0.1.5';
 
 const state = {
   reports: loadReports(),
@@ -66,23 +66,23 @@ function appendOwnerOption(owner) {
   elements.ownerInput.append(option);
 }
 
-function persist(nextReport) {
+function persist(nextReport, { shouldRender = true } = {}) {
   state.report = nextReport;
   state.reports = upsertReport(state.reports, nextReport);
   saveReports(state.reports);
-  render();
+  if (shouldRender) render();
 }
 
 function updateReport(patch) {
   persist({ ...state.report, ...patch });
 }
 
-function updateRow(id, patch) {
+function updateRow(id, patch, options = {}) {
   const updatedAt = new Date().toLocaleString('ru-RU');
   persist({
     ...state.report,
     rows: state.report.rows.map((row) => (row.id === id ? { ...row, ...patch, updatedAt } : row)),
-  });
+  }, options);
 }
 
 function exportCsv() {
@@ -201,6 +201,7 @@ function createChecklistCard(item, row) {
   const card = document.createElement('article');
   card.className = 'check-row';
   if (row.status === 'done') card.classList.add('is-done');
+  if (row.status === 'fixed') card.classList.add('is-fixed');
   if (row.status === 'issue') card.classList.add('is-issue');
   if (item.type === 'number') card.classList.add('is-number');
 
@@ -244,7 +245,7 @@ function createControlCell(item, row) {
     input.value = row.value;
     input.placeholder = item.placeholder ?? '0';
     input.disabled = isMetricLocked(item);
-    input.addEventListener('input', (event) => updateRow(item.id, { value: event.target.value }));
+    input.addEventListener('input', (event) => updateRow(item.id, { value: event.target.value }, { shouldRender: false }));
     const suffix = document.createElement('span');
     suffix.textContent = item.suffix;
     inlineField.append(input, suffix);
@@ -281,7 +282,7 @@ function createCommentField(item, row) {
   textarea.placeholder = item.placeholder ?? 'Комментарий к метрике';
   textarea.value = row.comment;
   textarea.disabled = isMetricLocked(item);
-  textarea.addEventListener('input', (event) => updateRow(item.id, { comment: event.target.value }));
+  textarea.addEventListener('input', (event) => updateRow(item.id, { comment: event.target.value }, { shouldRender: false }));
   return textarea;
 }
 
@@ -376,10 +377,13 @@ function createManagerMetricList(metrics, report) {
     const status = row?.status ?? '';
     item.className = filled && status ? `is-filled is-${status}` : filled ? 'is-filled' : 'is-empty';
     const detail = getManagerMetricDetail(row, metric, filled);
+    const deadline = getManagerMetricDeadline(metric);
+    const icon = status === 'issue' ? '!' : status === 'fixed' ? '✓!' : filled ? '✓' : '○';
     item.innerHTML = `
-      <span>${status === 'issue' ? '!' : filled ? '✓' : '○'}</span>
+      <span>${icon}</span>
       <div>
         <strong>${escapeHtml(metric.metric)}</strong>
+        ${deadline ? `<small class="manager-deadline">${escapeHtml(deadline)}</small>` : ''}
         <small>${escapeHtml(detail)}</small>
       </div>
     `;
@@ -387,6 +391,11 @@ function createManagerMetricList(metrics, report) {
   }
 
   return list;
+}
+
+function getManagerMetricDeadline(metric) {
+  const deadline = String(metric.deadline ?? '').trim();
+  return deadline ? `Срок сдачи: ${deadline}` : '';
 }
 
 function getManagerMetricDetail(row, metric, filled) {

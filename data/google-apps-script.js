@@ -21,12 +21,13 @@ const CONFIG = {
   },
   metrics: {
     // На всех листах с метриками: A = периодичность, B = название, C = описание, D = цель,
-    // F = должность ответственного, I = классификация метрики, J = руководитель, которому нужен дашборд.
+    // F = должность ответственного, G = срок сдачи, I = классификация метрики, J = руководитель, которому нужен дашборд.
     frequencyColumn: 1,
     metricColumn: 2,
     descriptionColumn: 3,
     goalColumn: 4,
     roleColumn: 6,
+    deadlineColumn: 7,
     classificationColumn: 9,
     managerRoleColumn: 10,
     // Необязательные колонки. Оставьте null, если их нет в таблице.
@@ -83,6 +84,7 @@ function readMetricSheet_(sheet) {
       description: getOptionalCell_(row, CONFIG.metrics.descriptionColumn),
       goal: getOptionalCell_(row, CONFIG.metrics.goalColumn),
       role: getCell_(row, CONFIG.metrics.roleColumn),
+      deadline: getOptionalCell_(row, CONFIG.metrics.deadlineColumn),
       classification: getOptionalCell_(row, CONFIG.metrics.classificationColumn),
       managerRole: getOptionalCell_(row, CONFIG.metrics.managerRoleColumn),
       reportFormat: getOptionalCell_(row, CONFIG.metrics.reportFormatColumn) || getOptionalCell_(row, CONFIG.metrics.descriptionColumn) || 'Проверено / не проверено',

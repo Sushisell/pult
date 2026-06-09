@@ -1,7 +1,8 @@
-import { CATEGORIES, CHECKLIST, INFO_ROWS, STATUS, findEmployeeByFullName, getMetricsForRole } from './checklist.js?v=0.1.4';
+import { CATEGORIES, CHECKLIST, INFO_ROWS, STATUS, findEmployeeByFullName, getMetricsForRole } from './checklist.js?v=0.1.5';
 
 const STORAGE_KEY = 'pult.dailyChecks.v1';
 const REPORT_KEY_SEPARATOR = '::';
+const FILLED_STATUS_VALUES = new Set(['done', 'fixed', 'issue']);
 
 export function todayISO(date = new Date()) {
   const offset = date.getTimezoneOffset();
@@ -181,7 +182,7 @@ export function getCompletion(report, metrics = CHECKLIST) {
   const rows = report.rows.filter((row) => metricIds.has(row.id));
   const total = rows.length;
   const done = rows.filter(isRowFilled).length;
-  const issues = rows.filter((row) => row.status === 'issue' || row.comment?.trim()).length;
+  const issues = rows.filter((row) => row.status === 'fixed' || row.status === 'issue' || row.comment?.trim()).length;
   return {
     total,
     done,
@@ -255,8 +256,7 @@ export function isMetricFilled(report, metricId) {
 }
 
 export function isRowFilled(row) {
-  return row.status === 'done'
-    || row.status === 'issue'
+  return FILLED_STATUS_VALUES.has(row.status)
     || Boolean(String(row.value ?? '').trim())
     || Boolean(String(row.comment ?? '').trim());
 }
@@ -307,15 +307,14 @@ function getStatusLabel(status) {
 function getStoredValue(row, metric) {
   if (metric?.type === 'number') return String(row.value ?? '').trim();
   if (String(row.value ?? '').trim()) return String(row.value ?? '').trim();
-  if (row.status === 'done') return 'Проверено';
-  if (row.status === 'issue') return 'Проблема';
-  return '';
+  return STATUS[row.status] ?? '';
 }
 
 function getStatusFromStoredValue(value, fallback = '') {
   const normalized = String(value ?? '').trim().toLowerCase();
   if (!normalized) return fallback;
-  if (normalized.includes('проблем') || normalized.includes('issue')) return 'issue';
+  if (normalized.includes('исправлен') || normalized.includes('fixed')) return 'fixed';
+  if (normalized.includes('нельзя') || normalized.includes('невозмож') || normalized.includes('проблем') || normalized.includes('ошиб') || normalized.includes('issue')) return 'issue';
   return 'done';
 }
 
