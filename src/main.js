@@ -6,6 +6,7 @@ import {
   buildDataRows,
   buildReportsFromDataRows,
   buildSummaryRows,
+  createEmptyReport,
   getCompletion,
   getDueMetricsForDate,
   getReportForDate,
@@ -22,7 +23,8 @@ import {
 } from './storage.js?v=0.1.5';
 
 const state = {
-  reports: loadReports(),
+  localReports: loadReports(),
+  reports: {},
   date: todayISO(),
   frequencyFilter: 'all',
   report: null,
@@ -54,7 +56,8 @@ const elements = {
   managerDashboard: document.querySelector('#manager-dashboard'),
 };
 
-state.report = getReportForDate(state.reports, state.date, state.catalog.checklist, getDefaultOwner());
+state.reports = { ...state.localReports };
+state.report = createEditableReport(state.date, getDefaultOwner());
 elements.dateInput.value = state.date;
 if (elements.appVersion) elements.appVersion.textContent = `v${APP_VERSION}`;
 
@@ -68,8 +71,9 @@ function appendOwnerOption(owner) {
 
 function persist(nextReport, { shouldRender = true } = {}) {
   state.report = nextReport;
+  state.localReports = upsertReport(state.localReports, nextReport);
   state.reports = upsertReport(state.reports, nextReport);
-  saveReports(state.reports);
+  saveReports(state.localReports);
   if (shouldRender) render();
 }
 
@@ -204,12 +208,13 @@ function createChecklistCard(item, row) {
   if (row.status === 'fixed') card.classList.add('is-fixed');
   if (row.status === 'issue') card.classList.add('is-issue');
   if (item.type === 'number') card.classList.add('is-number');
+  if (isMetricLocked(item)) card.classList.add('is-locked');
 
-  card.append(createMetricCell(item), createControlCell(item, row));
+  card.append(createMetricCell(item, row), createControlCell(item, row));
   return card;
 }
 
-function createMetricCell(item) {
+function createMetricCell(item, row) {
   const wrapper = document.createElement('div');
   const title = document.createElement('strong');
   title.className = 'metric-title';
@@ -230,7 +235,30 @@ function createMetricCell(item) {
     wrapper.append(goal);
   }
 
+  const meta = createMetricMeta(item, row);
+  if (meta) wrapper.append(meta);
+
   return wrapper;
+}
+
+function createMetricMeta(item, row) {
+  const badges = [];
+  if (item.deadline) badges.push({ label: `Срок: ${item.deadline}`, className: 'metric-badge' });
+  if (isMetricSubmitted(state.report, item.id)) badges.push({ label: 'Уже сохранено', className: 'metric-badge metric-badge-success' });
+  if (!row.status && !row.value && !row.comment && !isMetricSubmitted(state.report, item.id)) {
+    badges.push({ label: 'Ждёт ответа', className: 'metric-badge metric-badge-muted' });
+  }
+  if (badges.length === 0) return null;
+
+  const meta = document.createElement('div');
+  meta.className = 'metric-meta';
+  for (const badge of badges) {
+    const span = document.createElement('span');
+    span.className = badge.className;
+    span.textContent = badge.label;
+    meta.append(span);
+  }
+  return meta;
 }
 
 function createControlCell(item, row) {
@@ -264,8 +292,15 @@ function createControlCell(item, row) {
     input.name = `status-${item.id}`;
     input.value = value;
     input.checked = row.status === value;
+    if (input.checked) option.classList.add('is-selected');
     input.disabled = isMetricLocked(item);
+    if (input.disabled) option.classList.add('is-disabled');
     input.addEventListener('change', () => updateRow(item.id, { status: value }));
+    option.addEventListener('click', (event) => {
+      if (input.disabled || input.checked) return;
+      event.preventDefault();
+      updateRow(item.id, { status: value });
+    });
     const text = document.createElement('span');
     text.textContent = label;
     option.append(input, text);
@@ -463,7 +498,7 @@ function setReportDate(nextDate) {
   elements.dateInput.setCustomValidity('');
   state.date = nextDate;
   const selectedOwner = hasCatalogOwner(state.report.owner) ? state.report.owner : getDefaultOwner();
-  state.report = getReportForDate(state.reports, state.date, state.catalog.checklist, selectedOwner);
+  state.report = createEditableReport(state.date, selectedOwner);
   render();
   return true;
 }
@@ -535,12 +570,22 @@ function updateSubmittedFeedback() {
 }
 
 elements.ownerInput.addEventListener('change', (event) => {
-  state.report = getReportForDate(state.reports, state.date, state.catalog.checklist, event.target.value);
+  state.report = createEditableReport(state.date, event.target.value);
   render();
 });
 elements.saveDailyButton.addEventListener('click', () => saveFrequencyReport('daily'));
 elements.saveWeeklyButton.addEventListener('click', () => saveFrequencyReport('weekly'));
 elements.exportButton.addEventListener('click', exportCsv);
+
+
+function createEditableReport(date, owner) {
+  const storedReport = getReportForDate(state.reports, date, state.catalog.checklist, owner);
+  return {
+    ...createEmptyReport(date, state.catalog.checklist, owner),
+    submittedCategories: storedReport.submittedCategories ?? {},
+    submittedMetricIds: storedReport.submittedMetricIds ?? {},
+  };
+}
 
 function getDefaultOwner() {
   return state.catalog.infoRows[0]?.fullName ?? '';
@@ -570,11 +615,10 @@ async function hydrateCatalog() {
   try {
     state.catalog = await loadCatalog();
     const sheetReports = buildReportsFromDataRows(state.catalog.dataRows, state.catalog.checklist);
-    state.reports = mergeReports(sheetReports, state.reports);
-    saveReports(state.reports);
+    state.reports = mergeReports(sheetReports, state.localReports);
     const defaultOwner = getDefaultOwner();
     const selectedOwner = hasCatalogOwner(state.report?.owner) ? state.report.owner : defaultOwner;
-    state.report = getReportForDate(state.reports, state.date, state.catalog.checklist, selectedOwner);
+    state.report = createEditableReport(state.date, selectedOwner);
     if (!state.report.owner && defaultOwner) state.report.owner = defaultOwner;
     refreshOwnerOptions();
     render();
