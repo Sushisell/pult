@@ -128,6 +128,29 @@ describe('daily report storage helpers', () => {
     assert.deepEqual(metrics.map((metric) => metric.metric), ['HR проверка', 'Маркетинг проверка']);
   });
 
+  it('merges duplicate Info rows for one employee into all employee positions', () => {
+    const catalog = createCatalog({
+      infoRows: [
+        { fullName: 'Мялицына Виктория', role: 'Рук. отдела персонала РС' },
+        { fullName: 'Мялицына Виктория', role: 'Рук. отдела персонала' },
+      ],
+      metricSheets: [{
+        name: 'Персонал',
+        rows: [
+          { frequency: 'ежедневно', metric: 'Проверка карьерного сайта', role: 'Рук. отдела персонала РС' },
+          { frequency: 'ежедневно', metric: 'Индекс вежливости компании на HH', role: 'Рук. отдела персонала' },
+        ],
+      }],
+    });
+
+    const employee = findEmployeeByFullName('Мялицына Виктория', catalog.infoRows);
+    const metrics = getMetricsForRole(employee.role, catalog.checklist);
+
+    assert.equal(catalog.infoRows.length, 1);
+    assert.equal(employee.role, 'Рук. отдела персонала РС, Рук. отдела персонала');
+    assert.deepEqual(metrics.map((metric) => metric.metric), ['Проверка карьерного сайта', 'Индекс вежливости компании на HH']);
+  });
+
   it('builds a catalog from external workbook data', () => {
     const catalog = createCatalog({
       infoRows: [{ fullName: 'Реальный Сотрудник', role: 'Операции', managerRole: 'Директор' }],
