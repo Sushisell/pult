@@ -74,13 +74,60 @@ function splitRoleAliases(role) {
 }
 
 function normalizeInfoRows(infoRows) {
-  return infoRows
+  const rows = infoRows
     .map((row) => ({
       fullName: String(row.fullName ?? row.name ?? row['ФИО'] ?? '').trim(),
       role: String(row.role ?? row['Роль'] ?? '').trim(),
       managerRole: String(row.managerRole ?? row.manager ?? row['Роль руководителя'] ?? '').trim(),
     }))
     .filter((row) => row.fullName && row.role);
+
+  return mergeInfoRowsByFullName(rows);
+}
+
+function mergeInfoRowsByFullName(rows) {
+  const rowsByName = new Map();
+
+  for (const row of rows) {
+    const key = normalizeText(row.fullName);
+    const current = rowsByName.get(key);
+
+    if (!current) {
+      rowsByName.set(key, { ...row });
+      continue;
+    }
+
+    current.role = joinUniqueList(current.role, row.role);
+    current.managerRole = joinUniqueList(current.managerRole, row.managerRole);
+  }
+
+  return [...rowsByName.values()];
+}
+
+function joinUniqueList(...values) {
+  const items = [];
+  const normalizedItems = new Set();
+
+  for (const value of values) {
+    for (const item of splitRawRoleAliases(value)) {
+      const normalizedItem = normalizeText(item);
+      if (!normalizedItems.has(normalizedItem)) {
+        normalizedItems.add(normalizedItem);
+        items.push(item);
+      }
+    }
+  }
+
+  return items.join(', ');
+}
+
+function splitRawRoleAliases(role) {
+  return String(role ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .split(/[,;/|]+|\s+и\s+|\s+или\s+/u)
+    .map((part) => part.trim())
+    .filter(Boolean);
 }
 
 function normalizeMetricSheets(metricSheets) {

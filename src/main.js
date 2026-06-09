@@ -1,6 +1,6 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.3';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.3';
-import { APP_VERSION } from './version.js?v=0.1.3';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.4';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.4';
+import { APP_VERSION } from './version.js?v=0.1.4';
 import {
   buildCsv,
   buildDataRows,
@@ -17,7 +17,7 @@ import {
   saveReports,
   todayISO,
   upsertReport,
-} from './storage.js?v=0.1.3';
+} from './storage.js?v=0.1.4';
 
 const state = {
   reports: loadReports(),
