@@ -3,8 +3,26 @@ import { describe, it } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { loadCatalog, submitDataRows } from '../src/data-source.js';
 import { buildCsv, buildDataRows, buildReportsFromDataRows, createEmptyReport, getCompletion, getDueMetricsForDate, getReportForDate, isReportSubmittedForCategory, makeReportKey, markReportSubmittedForCategory, upsertReport } from '../src/storage.js';
-import { CHECKLIST, createCatalog, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from '../src/checklist.js';
+import { CHECKLIST, createCatalog, createChecklist, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from '../src/checklist.js';
 import { APP_VERSION } from '../src/version.js';
+
+
+const TEST_INFO_ROWS = [
+  { fullName: 'Тестовый Сотрудник HR', role: 'HR', managerRole: 'Операционный директор' },
+  { fullName: 'Тестовый Сотрудник Франчайзинг', role: 'Франчайзинг', managerRole: 'Операционный директор' },
+];
+
+const TEST_METRIC_SHEETS = [{
+  name: 'HR',
+  rows: [
+    { frequency: 'ежедневно', metric: 'Проверка HR', role: 'HR', reportFormat: 'Проверено / не проверено', type: 'checkbox' },
+    { frequency: 'еженедельно', metric: 'Еженедельная HR проверка', role: 'HR', reportFormat: 'Комментарий', type: 'checkboxWithText' },
+    { frequency: 'ежемесячно', metric: 'Ежемесячная HR проверка', role: 'HR', reportFormat: 'Проверено / не проверено', type: 'checkbox' },
+  ],
+}];
+
+const TEST_CHECKLIST = createChecklist(TEST_METRIC_SHEETS);
+const TEST_CATALOG = createCatalog({ infoRows: TEST_INFO_ROWS, metricSheets: TEST_METRIC_SHEETS });
 
 describe('daily report storage helpers', () => {
   it('creates a complete empty report for a selected date', () => {
@@ -20,43 +38,43 @@ describe('daily report storage helpers', () => {
       '2026-06-01': {
         date: '2026-06-01',
         owner: 'Анна',
-        rows: [{ id: 'hr-1', status: 'done', value: '', comment: '', updatedAt: '10:00' }],
+        rows: [{ id: TEST_CHECKLIST[0].id, status: 'done', value: '', comment: '', updatedAt: '10:00' }],
       },
     };
 
-    const report = getReportForDate(reports, '2026-06-01');
+    const report = getReportForDate(reports, '2026-06-01', TEST_CHECKLIST);
 
     assert.equal(report.owner, 'Анна');
-    assert.equal(report.rows.length, CHECKLIST.length);
+    assert.equal(report.rows.length, TEST_CHECKLIST.length);
     assert.equal(report.rows[0].status, 'done');
-    assert.equal(getCompletion(report).percent, Math.round((1 / CHECKLIST.length) * 100));
+    assert.equal(getCompletion(report, TEST_CHECKLIST).percent, Math.round((1 / TEST_CHECKLIST.length) * 100));
   });
 
 
 
   it('stores separate reports for different employees on the same date', () => {
-    const first = createEmptyReport('2026-06-01', CHECKLIST, 'Коваленко Марина Сергеевна');
-    const second = createEmptyReport('2026-06-01', CHECKLIST, 'Иванова Анна Петровна');
+    const first = createEmptyReport('2026-06-01', TEST_CHECKLIST, 'Тестовый Сотрудник HR');
+    const second = createEmptyReport('2026-06-01', TEST_CHECKLIST, 'Тестовый Сотрудник Франчайзинг');
 
     const reports = upsertReport(upsertReport({}, first), second);
 
-    assert.ok(reports[makeReportKey('2026-06-01', 'Коваленко Марина Сергеевна')]);
-    assert.ok(reports[makeReportKey('2026-06-01', 'Иванова Анна Петровна')]);
-    assert.equal(getReportForDate(reports, '2026-06-01', CHECKLIST, 'Иванова Анна Петровна').owner, 'Иванова Анна Петровна');
+    assert.ok(reports[makeReportKey('2026-06-01', 'Тестовый Сотрудник HR')]);
+    assert.ok(reports[makeReportKey('2026-06-01', 'Тестовый Сотрудник Франчайзинг')]);
+    assert.equal(getReportForDate(reports, '2026-06-01', TEST_CHECKLIST, 'Тестовый Сотрудник Франчайзинг').owner, 'Тестовый Сотрудник Франчайзинг');
   });
 
   it('hides already filled weekly and monthly metrics in the same period', () => {
-    const report = createEmptyReport('2026-06-01', CHECKLIST, 'Коваленко Марина Сергеевна');
-    const hrMetrics = getMetricsForRole('HR');
+    const report = createEmptyReport('2026-06-01', TEST_CHECKLIST, 'Тестовый Сотрудник HR');
+    const hrMetrics = getMetricsForRole('HR', TEST_CHECKLIST);
     const weekly = hrMetrics.find((metric) => metric.category === 'weekly');
     const monthly = hrMetrics.find((metric) => metric.category === 'monthly');
     report.rows.find((row) => row.id === weekly.id).status = 'done';
     report.rows.find((row) => row.id === monthly.id).status = 'done';
     const reports = upsertReport({}, report);
 
-    const dueSameWeek = getDueMetricsForDate(reports, '2026-06-03', 'Коваленко Марина Сергеевна', hrMetrics);
-    const dueNextWeekSameMonth = getDueMetricsForDate(reports, '2026-06-08', 'Коваленко Марина Сергеевна', hrMetrics);
-    const dueNextMonth = getDueMetricsForDate(reports, '2026-07-01', 'Коваленко Марина Сергеевна', hrMetrics);
+    const dueSameWeek = getDueMetricsForDate(reports, '2026-06-03', 'Тестовый Сотрудник HR', hrMetrics);
+    const dueNextWeekSameMonth = getDueMetricsForDate(reports, '2026-06-08', 'Тестовый Сотрудник HR', hrMetrics);
+    const dueNextMonth = getDueMetricsForDate(reports, '2026-07-01', 'Тестовый Сотрудник HR', hrMetrics);
 
     assert.equal(dueSameWeek.some((metric) => metric.id === weekly.id), false);
     assert.equal(dueSameWeek.some((metric) => metric.id === monthly.id), false);
@@ -66,8 +84,8 @@ describe('daily report storage helpers', () => {
   });
 
   it('finds a role by FIO on Info and groups matching metrics by frequency', () => {
-    const employee = findEmployeeByFullName('Коваленко Марина Сергеевна');
-    const metrics = getMetricsForRole(employee.role);
+    const employee = findEmployeeByFullName('Тестовый Сотрудник HR', TEST_CATALOG.infoRows);
+    const metrics = getMetricsForRole(employee.role, TEST_CATALOG.checklist);
     const groups = groupMetricsByFrequency(metrics);
 
     assert.equal(employee.role, 'HR');
@@ -156,11 +174,21 @@ describe('daily report storage helpers', () => {
   });
 
   it('marks a report category as submitted to block repeat sends', () => {
-    const report = createEmptyReport('2026-06-01', CHECKLIST, 'Коваленко Марина Сергеевна');
+    const report = createEmptyReport('2026-06-01', TEST_CHECKLIST, 'Тестовый Сотрудник HR');
     const submitted = markReportSubmittedForCategory(report, 'daily');
 
     assert.equal(isReportSubmittedForCategory(report, 'daily'), false);
     assert.equal(isReportSubmittedForCategory(submitted, 'daily'), true);
+  });
+
+  it('keeps catalog empty when the table cannot be loaded', async () => {
+    const catalog = await loadCatalog({
+      dataUrl: '/missing-workbook.json',
+      fetchImpl: async () => ({ ok: false, status: 404 }),
+    });
+
+    assert.deepEqual(catalog.infoRows, []);
+    assert.deepEqual(catalog.checklist, []);
   });
 
   it('loads catalog data from a configured JSON url', async () => {
@@ -203,13 +231,12 @@ describe('daily report storage helpers', () => {
   });
 
   it('exports rows to csv with role, frequency and status labels', () => {
-    const report = createEmptyReport('2026-06-01');
-    report.owner = 'Коваленко Марина Сергеевна';
+    const report = createEmptyReport('2026-06-01', TEST_CATALOG.checklist, 'Тестовый Сотрудник HR');
     report.rows[0].status = 'done';
-    const csv = buildCsv(upsertReport({}, report));
+    const csv = buildCsv(upsertReport({}, report), TEST_CATALOG);
 
     assert.match(csv, /Дата,ФИО,Роль,Периодичность,Лист/);
-    assert.match(csv, /Коваленко Марина Сергеевна,HR,Ежедневно,HR/);
+    assert.match(csv, /Тестовый Сотрудник HR,HR,Ежедневно,HR/);
     assert.match(csv, /Всё ок/);
   });
 });
