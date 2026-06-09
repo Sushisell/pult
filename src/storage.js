@@ -12,7 +12,7 @@ export function todayISO(date = new Date()) {
 export function createEmptyRow(item) {
   return {
     id: item.id,
-    status: 'skipped',
+    status: '',
     value: '',
     comment: '',
     updatedAt: '',
@@ -25,6 +25,7 @@ export function createEmptyReport(date = todayISO(), checklist = CHECKLIST, defa
     owner: defaultOwner,
     rows: checklist.map(createEmptyRow),
     submittedCategories: {},
+    submittedMetricIds: {},
   };
 }
 
@@ -73,6 +74,10 @@ export function mergeReports(baseReports = {}, incomingReports = {}) {
           ...(current.submittedCategories ?? {}),
           ...(report.submittedCategories ?? {}),
         },
+        submittedMetricIds: {
+          ...(current.submittedMetricIds ?? {}),
+          ...(report.submittedMetricIds ?? {}),
+        },
       },
     };
   }, baseReports);
@@ -103,6 +108,10 @@ export function buildReportsFromDataRows(dataRows = [], checklist = CHECKLIST) {
         ...(report.submittedCategories ?? {}),
         [metric.category]: true,
       },
+      submittedMetricIds: {
+        ...(report.submittedMetricIds ?? {}),
+        [metric.id]: true,
+      },
     });
   }, {});
 }
@@ -129,16 +138,42 @@ export function getReportForDate(reports, date, checklist = CHECKLIST, defaultOw
   if (!current) return createEmptyReport(date, checklist, owner);
 
   const rowsById = new Map(current.rows.map((row) => [row.id, row]));
-  return {
+  const rows = checklist.map((item) => normalizeStoredRow({
+    ...createEmptyRow(item),
+    ...rowsById.get(item.id),
+  }));
+  const report = {
     ...createEmptyReport(date, checklist, owner),
     ...current,
     date,
     owner: current.owner || owner,
-    rows: checklist.map((item) => ({
-      ...createEmptyRow(item),
-      ...rowsById.get(item.id),
-    })),
+    rows,
   };
+
+  return {
+    ...report,
+    submittedMetricIds: normalizeSubmittedMetricIds(report, checklist),
+  };
+}
+
+function normalizeStoredRow(row) {
+  return {
+    ...row,
+    status: row.status === 'skipped' ? '' : row.status,
+  };
+}
+
+function normalizeSubmittedMetricIds(report, checklist) {
+  const submittedMetricIds = { ...(report.submittedMetricIds ?? {}) };
+
+  for (const metric of checklist) {
+    const row = report.rows.find((entry) => entry.id === metric.id);
+    if (report.submittedCategories?.[metric.category] && row && isRowFilled(row)) {
+      submittedMetricIds[metric.id] = true;
+    }
+  }
+
+  return submittedMetricIds;
 }
 
 export function getCompletion(report, metrics = CHECKLIST) {
@@ -156,8 +191,9 @@ export function getCompletion(report, metrics = CHECKLIST) {
   };
 }
 
-export function isReportSubmittedForCategory(report, category) {
-  return Boolean(report?.submittedCategories?.[category]);
+export function isReportSubmittedForCategory(report, category, metrics = CHECKLIST) {
+  const categoryMetrics = metrics.filter((metric) => metric.category === category);
+  return Boolean(report?.submittedCategories?.[category]) || areAllMetricsSubmitted(report, categoryMetrics);
 }
 
 export function markReportSubmittedForCategory(report, category) {
@@ -167,6 +203,31 @@ export function markReportSubmittedForCategory(report, category) {
       ...(report.submittedCategories ?? {}),
       [category]: true,
     },
+  };
+}
+
+export function isMetricSubmitted(report, metricId) {
+  return Boolean(report?.submittedMetricIds?.[metricId]);
+}
+
+export function getPendingFilledMetrics(report, metrics = CHECKLIST) {
+  return metrics.filter((metric) => isMetricFilled(report, metric.id) && !isMetricSubmitted(report, metric.id));
+}
+
+export function areAllMetricsSubmitted(report, metrics = CHECKLIST) {
+  return metrics.length > 0 && metrics.every((metric) => isMetricSubmitted(report, metric.id));
+}
+
+export function markReportMetricsSubmitted(report, metrics = CHECKLIST) {
+  const submittedMetricIds = { ...(report.submittedMetricIds ?? {}) };
+
+  for (const metric of metrics) {
+    if (isMetricFilled(report, metric.id)) submittedMetricIds[metric.id] = true;
+  }
+
+  return {
+    ...report,
+    submittedMetricIds,
   };
 }
 
@@ -226,7 +287,7 @@ export function buildCsv(reports, catalog = getDefaultCatalog()) {
           row.id,
           item?.metric ?? '',
           item?.reportFormat ?? '',
-          STATUS[row.status] ?? row.status,
+          getStatusLabel(row.status),
           row.value,
           row.comment,
           row.updatedAt,
@@ -239,6 +300,10 @@ export function buildCsv(reports, catalog = getDefaultCatalog()) {
     .join('\n');
 }
 
+function getStatusLabel(status) {
+  return STATUS[status] ?? '';
+}
+
 function getStoredValue(row, metric) {
   if (metric?.type === 'number') return String(row.value ?? '').trim();
   if (String(row.value ?? '').trim()) return String(row.value ?? '').trim();
@@ -247,7 +312,7 @@ function getStoredValue(row, metric) {
   return '';
 }
 
-function getStatusFromStoredValue(value, fallback = 'skipped') {
+function getStatusFromStoredValue(value, fallback = '') {
   const normalized = String(value ?? '').trim().toLowerCase();
   if (!normalized) return fallback;
   if (normalized.includes('проблем') || normalized.includes('issue')) return 'issue';

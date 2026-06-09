@@ -6,7 +6,17 @@
     <title>Пульт управления Сушиселл</title>
     <link rel="stylesheet" href="./src/styles.css?v=0.1.4" />
   </head>
-  <body>
+  <body class="is-loading">
+
+    <section class="loading-screen" id="loading-screen" aria-labelledby="loading-title" aria-live="polite">
+      <div class="loading-card">
+        <span class="loading-mark" aria-hidden="true"></span>
+        <p class="loading-eyebrow">Пульт управления Сушиселл</p>
+        <h1 id="loading-title">Подключаемся к таблице</h1>
+        <p>Загружаем сотрудников, роли и метрики. Это займёт пару секунд.</p>
+      </div>
+    </section>
+
     <header class="app-header" aria-label="Шапка пульта">
       <a class="brand" href="#pult-main" aria-label="Пульт управления Сушиселл">
         <span class="brand-mark" aria-hidden="true"></span>
