@@ -1,4 +1,4 @@
-import { INFO_ROWS, METRIC_SHEETS, createCatalog } from './checklist.js';
+import { createCatalog } from './checklist.js?v=0.1.3';
 
 const DEFAULT_DATA_URL = './data/workbook.json';
 
@@ -7,7 +7,7 @@ export async function loadCatalog({
   fetchImpl = globalThis.fetch,
 } = {}) {
   if (!dataUrl || typeof fetchImpl !== 'function') {
-    return createCatalog({ infoRows: INFO_ROWS, metricSheets: METRIC_SHEETS });
+    return createCatalog();
   }
 
   try {
@@ -16,8 +16,8 @@ export async function loadCatalog({
     const workbook = await response.json();
     return createCatalog(workbook);
   } catch (error) {
-    console.warn('Используем демо-данные, потому что таблица не загрузилась.', error);
-    return createCatalog({ infoRows: INFO_ROWS, metricSheets: METRIC_SHEETS });
+    console.warn('Таблица не загрузилась. Демо-данные отключены, поэтому каталог останется пустым.', error);
+    return createCatalog();
   }
 }
 

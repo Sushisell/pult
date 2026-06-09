@@ -1,6 +1,6 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from './checklist.js';
-import { loadCatalog, submitDataRows } from './data-source.js';
-import { APP_VERSION } from './version.js';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.3';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.3';
+import { APP_VERSION } from './version.js?v=0.1.3';
 import {
   buildCsv,
   buildDataRows,
@@ -17,7 +17,7 @@ import {
   saveReports,
   todayISO,
   upsertReport,
-} from './storage.js';
+} from './storage.js?v=0.1.3';
 
 const state = {
   reports: loadReports(),
@@ -55,9 +55,8 @@ state.report = getReportForDate(state.reports, state.date, state.catalog.checkli
 elements.dateInput.value = state.date;
 if (elements.appVersion) elements.appVersion.textContent = `v${APP_VERSION}`;
 
-function ensureOwnerOption(owner) {
+function appendOwnerOption(owner) {
   if (!owner || !elements.ownerInput) return;
-  if (Array.from(elements.ownerInput.options).some((option) => option.value === owner)) return;
   const option = document.createElement('option');
   option.value = owner;
   option.textContent = owner;
@@ -112,8 +111,7 @@ function getOwnerContext() {
 function render() {
   const context = getOwnerContext();
   const completion = getCompletion(state.report, context.metrics);
-  ensureOwnerOption(state.report.owner);
-  elements.ownerInput.value = state.report.owner;
+  elements.ownerInput.value = hasCatalogOwner(state.report.owner) ? state.report.owner : '';
   elements.heroScore.setAttribute('aria-label', `Выполнено ${completion.percent}%`);
   elements.heroScore.innerHTML = `
     <span class="score-icon">✓</span>
@@ -163,7 +161,7 @@ function renderChecklist({ employee, groups }) {
     elements.activeCategoryCount.textContent = '0 из 0 проверено';
     const empty = document.createElement('p');
     empty.className = 'empty';
-    empty.textContent = 'Введите ФИО как на листе «Инфо», чтобы определить роль и показать подходящие метрики.';
+    empty.textContent = 'Данные из таблицы не загружены или выбранного ФИО нет на листе «Инфо». Проверьте публикацию таблицы и URL веб-приложения.';
     elements.checklistBody.append(empty);
     return;
   }
@@ -452,7 +450,8 @@ function setReportDate(nextDate) {
   elements.dateError.hidden = true;
   elements.dateInput.setCustomValidity('');
   state.date = nextDate;
-  state.report = getReportForDate(state.reports, state.date, state.catalog.checklist, state.report.owner || getDefaultOwner());
+  const selectedOwner = hasCatalogOwner(state.report.owner) ? state.report.owner : getDefaultOwner();
+  state.report = getReportForDate(state.reports, state.date, state.catalog.checklist, selectedOwner);
   render();
   return true;
 }
@@ -464,9 +463,16 @@ async function saveFrequencyReport(category) {
     return;
   }
 
+  const context = getOwnerContext();
+  const metrics = context.roleMetrics.filter((metric) => metric.category === category);
+  if (!context.employee || metrics.length === 0) {
+    elements.saveFeedback.textContent = 'Нечего сохранять: данные из таблицы не загружены или для выбранного ФИО нет метрик.';
+    updateSaveButtons();
+    return;
+  }
+
   persist(markReportSubmittedForCategory(state.report, category));
   const label = category === 'weekly' ? 'Еженедельный' : 'Ежедневный';
-  const metrics = getOwnerContext().roleMetrics.filter((metric) => metric.category === category);
   const dataRows = buildDataRows(state.report, metrics);
 
   try {
@@ -490,10 +496,14 @@ function updateSaveButtons() {
 
 function updateSaveButton(button, category) {
   if (!button) return;
+  const { employee, roleMetrics } = getOwnerContext();
   const submitted = isReportSubmittedForCategory(state.report, category);
-  button.disabled = submitted;
-  button.title = submitted ? 'Данные уже заполнены за выбранный день' : '';
-  button.setAttribute('aria-disabled', String(submitted));
+  const hasMetrics = Boolean(employee) && roleMetrics.some((metric) => metric.category === category);
+  button.disabled = submitted || !hasMetrics;
+  button.title = submitted
+    ? 'Данные уже заполнены за выбранный день'
+    : hasMetrics ? '' : 'Данные из таблицы не загружены или нет метрик для выбранного ФИО';
+  button.setAttribute('aria-disabled', String(button.disabled));
 }
 
 function updateSubmittedFeedback() {
@@ -531,8 +541,22 @@ function getDefaultOwner() {
 
 function refreshOwnerOptions() {
   elements.ownerInput.innerHTML = '';
-  for (const employee of state.catalog.infoRows) ensureOwnerOption(employee.fullName);
-  ensureOwnerOption(state.report.owner);
+
+  if (state.catalog.infoRows.length === 0) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = 'Нет данных из таблицы';
+    option.disabled = true;
+    option.selected = true;
+    elements.ownerInput.append(option);
+    return;
+  }
+
+  for (const employee of state.catalog.infoRows) appendOwnerOption(employee.fullName);
+}
+
+function hasCatalogOwner(owner) {
+  return state.catalog.infoRows.some((employee) => employee.fullName === owner);
 }
 
 async function hydrateCatalog() {
@@ -541,7 +565,7 @@ async function hydrateCatalog() {
   state.reports = mergeReports(sheetReports, state.reports);
   saveReports(state.reports);
   const defaultOwner = getDefaultOwner();
-  const selectedOwner = state.report?.owner || defaultOwner;
+  const selectedOwner = hasCatalogOwner(state.report?.owner) ? state.report.owner : defaultOwner;
   state.report = getReportForDate(state.reports, state.date, state.catalog.checklist, selectedOwner);
   if (!state.report.owner && defaultOwner) state.report.owner = defaultOwner;
   refreshOwnerOptions();
