@@ -84,6 +84,25 @@ describe('daily report storage helpers', () => {
     assert.equal(dueNextMonth.some((metric) => metric.id === monthly.id), true);
   });
 
+  it('hides daily metrics already submitted for the selected date but keeps drafts visible', () => {
+    const report = createEmptyReport('2026-06-01', TEST_CHECKLIST, 'Тестовый Сотрудник HR');
+    const hrMetrics = getMetricsForRole('HR', TEST_CHECKLIST);
+    const daily = hrMetrics.find((metric) => metric.category === 'daily');
+    report.rows.find((row) => row.id === daily.id).status = 'done';
+    const draftReports = upsertReport({}, report);
+    const submittedReports = upsertReport({}, markReportMetricsSubmitted(report, [daily]));
+
+    const dueDraft = getDueMetricsForDate(draftReports, '2026-06-01', 'Тестовый Сотрудник HR', hrMetrics, { hideSubmittedForDate: true });
+    const dueSubmitted = getDueMetricsForDate(submittedReports, '2026-06-01', 'Тестовый Сотрудник HR', hrMetrics, { hideSubmittedForDate: true });
+    const dueSubmittedForDashboard = getDueMetricsForDate(submittedReports, '2026-06-01', 'Тестовый Сотрудник HR', hrMetrics);
+    const dueNextDay = getDueMetricsForDate(submittedReports, '2026-06-02', 'Тестовый Сотрудник HR', hrMetrics, { hideSubmittedForDate: true });
+
+    assert.equal(dueDraft.some((metric) => metric.id === daily.id), true);
+    assert.equal(dueSubmitted.some((metric) => metric.id === daily.id), false);
+    assert.equal(dueSubmittedForDashboard.some((metric) => metric.id === daily.id), true);
+    assert.equal(dueNextDay.some((metric) => metric.id === daily.id), true);
+  });
+
   it('finds a role by FIO on Info and groups matching metrics by frequency', () => {
     const employee = findEmployeeByFullName('Тестовый Сотрудник HR', TEST_CATALOG.infoRows);
     const metrics = getMetricsForRole(employee.role, TEST_CATALOG.checklist);

@@ -24,6 +24,7 @@ import {
 
 const state = {
   localReports: loadReports(),
+  sheetReports: {},
   reports: {},
   date: todayISO(),
   frequencyFilter: 'all',
@@ -103,7 +104,7 @@ function exportCsv() {
 function getOwnerContext() {
   const employee = findEmployeeByFullName(state.report.owner, state.catalog.infoRows);
   const roleMetrics = employee ? getMetricsForRole(employee.role, state.catalog.checklist) : [];
-  const dueMetrics = employee ? getDueMetricsForDate(state.reports, state.date, employee.fullName, roleMetrics) : [];
+  const dueMetrics = employee ? getDueMetricsForDate(state.reports, state.date, employee.fullName, roleMetrics, { hideSubmittedForDate: true }) : [];
   const metrics = state.frequencyFilter === 'all'
     ? dueMetrics
     : dueMetrics.filter((metric) => metric.category === state.frequencyFilter);
@@ -224,7 +225,7 @@ function createMetricCell(item, row) {
   if (item.description) {
     const description = document.createElement('span');
     description.className = 'metric-format';
-    description.textContent = item.description;
+    appendTextWithLinks(description, item.description);
     wrapper.append(description);
   }
 
@@ -378,8 +379,8 @@ function renderManagerDashboard(employee) {
 
   for (const teammate of team) {
     const metrics = getMetricsForRole(teammate.role, state.catalog.checklist);
-    const dueMetrics = getDueMetricsForDate(state.reports, state.date, teammate.fullName, metrics);
-    const report = getReportForDate(state.reports, state.date, state.catalog.checklist, teammate.fullName);
+    const dueMetrics = getDueMetricsForDate(state.sheetReports, state.date, teammate.fullName, metrics);
+    const report = getReportForDate(state.sheetReports, state.date, state.catalog.checklist, teammate.fullName);
     const completion = getCompletion(report, dueMetrics);
     const filledAny = dueMetrics.some((metric) => isMetricFilled(report, metric.id));
     const card = document.createElement('article');
@@ -464,6 +465,30 @@ function getManagedEmployees(manager) {
 
 function normalizeText(value) {
   return String(value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function appendTextWithLinks(parent, value) {
+  const text = String(value ?? '');
+  const urlPattern = /https?:\/\/[^\s<>()]+[^\s<>().,!?:;\]}'"]/giu;
+  let lastIndex = 0;
+
+  for (const match of text.matchAll(urlPattern)) {
+    if (match.index > lastIndex) {
+      parent.append(document.createTextNode(text.slice(lastIndex, match.index)));
+    }
+
+    const link = document.createElement('a');
+    link.href = match[0];
+    link.textContent = match[0];
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    parent.append(link);
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    parent.append(document.createTextNode(text.slice(lastIndex)));
+  }
 }
 
 function escapeHtml(value) {
@@ -614,8 +639,8 @@ function hasCatalogOwner(owner) {
 async function hydrateCatalog() {
   try {
     state.catalog = await loadCatalog();
-    const sheetReports = buildReportsFromDataRows(state.catalog.dataRows, state.catalog.checklist);
-    state.reports = mergeReports(sheetReports, state.localReports);
+    state.sheetReports = buildReportsFromDataRows(state.catalog.dataRows, state.catalog.checklist);
+    state.reports = mergeReports(state.sheetReports, state.localReports);
     const defaultOwner = getDefaultOwner();
     const selectedOwner = hasCatalogOwner(state.report?.owner) ? state.report.owner : defaultOwner;
     state.report = createEditableReport(state.date, selectedOwner);
