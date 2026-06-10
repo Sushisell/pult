@@ -232,21 +232,28 @@ export function markReportMetricsSubmitted(report, metrics = CHECKLIST) {
   };
 }
 
-export function getDueMetricsForDate(reports, date, owner, metrics = CHECKLIST) {
-  return metrics.filter((metric) => shouldShowMetricForDate(reports, date, owner, metric));
+export function getDueMetricsForDate(reports, date, owner, metrics = CHECKLIST, options = {}) {
+  return metrics.filter((metric) => shouldShowMetricForDate(reports, date, owner, metric, options));
 }
 
-export function shouldShowMetricForDate(reports, date, owner, metric) {
-  if (metric.category === 'daily') return true;
+export function shouldShowMetricForDate(reports, date, owner, metric, { hideSubmittedForDate = false } = {}) {
+  const reportAlreadyHasMetric = (report) => (
+    report.owner === owner
+    && isMetricFilled(report, metric.id)
+    && (report.date !== date || (hideSubmittedForDate && isMetricSubmitted(report, metric.id)))
+  );
+
+  if (metric.category === 'daily') {
+    return !Object.values(reports).some((report) => report.date === date && reportAlreadyHasMetric(report));
+  }
+
   const period = metric.category === 'weekly' ? getWeekPeriod(date) : getMonthPeriod(date);
   if (!period) return true;
 
   return !Object.values(reports).some((report) => (
-    report.owner === owner
-    && report.date !== date
-    && report.date >= period.start
+    report.date >= period.start
     && report.date <= period.end
-    && isMetricFilled(report, metric.id)
+    && reportAlreadyHasMetric(report)
   ));
 }
 
