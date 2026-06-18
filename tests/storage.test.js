@@ -103,6 +103,18 @@ describe('daily report storage helpers', () => {
     assert.equal(dueNextDay.some((metric) => metric.id === daily.id), true);
   });
 
+  it('can hide filled daily metric drafts on the selected date', () => {
+    const report = createEmptyReport('2026-06-01', TEST_CHECKLIST, 'Тестовый Сотрудник HR');
+    const hrMetrics = getMetricsForRole('HR', TEST_CHECKLIST);
+    const daily = hrMetrics.find((metric) => metric.category === 'daily');
+    report.rows.find((row) => row.id === daily.id).status = 'done';
+    const reports = upsertReport({}, report);
+
+    const dueMetrics = getDueMetricsForDate(reports, '2026-06-01', 'Тестовый Сотрудник HR', hrMetrics, { hideFilledForDate: true });
+
+    assert.equal(dueMetrics.some((metric) => metric.id === daily.id), false);
+  });
+
   it('finds a role by FIO on Info and groups matching metrics by frequency', () => {
     const employee = findEmployeeByFullName('Тестовый Сотрудник HR', TEST_CATALOG.infoRows);
     const metrics = getMetricsForRole(employee.role, TEST_CATALOG.checklist);

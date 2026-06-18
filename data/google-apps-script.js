@@ -155,7 +155,7 @@ function getDataRows_(sheet) {
   if (lastRow <= CONFIG.headerRows || lastColumn === 0) return [];
   return sheet
     .getRange(CONFIG.headerRows + 1, 1, lastRow - CONFIG.headerRows, lastColumn)
-    .getValues();
+    .getDisplayValues();
 }
 
 function getOptionalCell_(row, columnNumber) {
