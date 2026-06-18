@@ -1,4 +1,4 @@
-import { CATEGORIES, CHECKLIST, INFO_ROWS, STATUS, findEmployeeByFullName, getMetricsForRole } from './checklist.js?v=0.1.6';
+import { CATEGORIES, CHECKLIST, INFO_ROWS, STATUS, findEmployeeByFullName, getMetricsForRole } from './checklist.js?v=0.1.9';
 
 const STORAGE_KEY = 'pult.dailyChecks.v1';
 const REPORT_KEY_SEPARATOR = '::';
@@ -82,6 +82,18 @@ export function mergeReports(baseReports = {}, incomingReports = {}) {
       },
     };
   }, baseReports);
+}
+
+
+export function reconcileSubmittedMetricsWithSheetReports(reports = {}, sheetReports = {}) {
+  return Object.fromEntries(Object.entries(reports).map(([key, report]) => {
+    const sheetReport = sheetReports[key];
+    return [key, {
+      ...report,
+      submittedCategories: sheetReport?.submittedCategories ?? {},
+      submittedMetricIds: sheetReport?.submittedMetricIds ?? {},
+    }];
+  }));
 }
 
 export function buildReportsFromDataRows(dataRows = [], checklist = CHECKLIST) {

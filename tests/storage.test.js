@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { loadCatalog, submitDataRows } from '../src/data-source.js';
-import { areAllMetricsSubmitted, buildCsv, buildDataRows, buildReportsFromDataRows, createEmptyReport, getCompletion, getDueMetricsForDate, getPendingFilledMetrics, getReportForDate, isMetricSubmitted, isReportSubmittedForCategory, makeReportKey, markReportMetricsSubmitted, markReportSubmittedForCategory, upsertReport } from '../src/storage.js';
+import { areAllMetricsSubmitted, buildCsv, buildDataRows, buildReportsFromDataRows, createEmptyReport, getCompletion, getDueMetricsForDate, getPendingFilledMetrics, getReportForDate, isMetricSubmitted, isReportSubmittedForCategory, makeReportKey, markReportMetricsSubmitted, markReportSubmittedForCategory, reconcileSubmittedMetricsWithSheetReports, upsertReport } from '../src/storage.js';
 import { CHECKLIST, createCatalog, createChecklist, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from '../src/checklist.js';
 import { APP_VERSION } from '../src/version.js';
 
@@ -204,6 +204,18 @@ describe('daily report storage helpers', () => {
     assert.equal(catalog.checklist[0].managerRole, 'Директор');
     assert.equal(createCatalog({ metricSheets: [{ name: 'Типы', rows: [{ frequency: 'ежедневно', metric: 'Число', role: 'Операции', classification: 'Ввод числа' }] }] }).checklist[0].type, 'number');
     assert.deepEqual(groupMetricsByFrequency(catalog.checklist).map((group) => group.id), ['daily', 'monthly']);
+  });
+
+  it('drops stale local submitted flags that are absent from the Data sheet', () => {
+    const report = createEmptyReport('2026-06-18', TEST_CHECKLIST, 'Тестовый Сотрудник HR');
+    report.rows.find((row) => row.id === TEST_CHECKLIST[0].id).status = 'done';
+    const localReports = upsertReport({}, markReportMetricsSubmitted(report, [TEST_CHECKLIST[0]]));
+
+    const reconciled = reconcileSubmittedMetricsWithSheetReports(localReports, {});
+    const reconciledReport = getReportForDate(reconciled, '2026-06-18', TEST_CHECKLIST, 'Тестовый Сотрудник HR');
+
+    assert.equal(isMetricSubmitted(reconciledReport, TEST_CHECKLIST[0].id), false);
+    assert.deepEqual(getPendingFilledMetrics(reconciledReport, TEST_CHECKLIST).map((metric) => metric.id), [TEST_CHECKLIST[0].id]);
   });
 
   it('builds reports from sheet data rows and exports filled rows for the Data sheet', () => {
