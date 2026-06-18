@@ -236,11 +236,11 @@ export function getDueMetricsForDate(reports, date, owner, metrics = CHECKLIST, 
   return metrics.filter((metric) => shouldShowMetricForDate(reports, date, owner, metric, options));
 }
 
-export function shouldShowMetricForDate(reports, date, owner, metric, { hideSubmittedForDate = false } = {}) {
+export function shouldShowMetricForDate(reports, date, owner, metric, { hideSubmittedForDate = false, hideFilledForDate = false } = {}) {
   const reportAlreadyHasMetric = (report) => (
     report.owner === owner
     && isMetricFilled(report, metric.id)
-    && (report.date !== date || (hideSubmittedForDate && isMetricSubmitted(report, metric.id)))
+    && (report.date !== date || (hideFilledForDate && report.date === date) || (hideSubmittedForDate && isMetricSubmitted(report, metric.id)))
   );
 
   if (metric.category === 'daily') {

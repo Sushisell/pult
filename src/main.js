@@ -103,7 +103,7 @@ function exportCsv() {
 function getOwnerContext() {
   const employee = findEmployeeByFullName(state.report.owner, state.catalog.infoRows);
   const roleMetrics = employee ? getMetricsForRole(employee.role, state.catalog.checklist) : [];
-  const dueMetrics = employee ? getDueMetricsForDate(state.reports, state.date, employee.fullName, roleMetrics, { hideSubmittedForDate: true }) : [];
+  const dueMetrics = employee ? getDueMetricsForDate(state.reports, state.date, employee.fullName, roleMetrics, { hideFilledForDate: true }) : [];
   const metrics = state.frequencyFilter === 'all'
     ? dueMetrics
     : dueMetrics.filter((metric) => metric.category === state.frequencyFilter);
@@ -180,7 +180,7 @@ function renderChecklist({ employee, groups }) {
   if (visibleCount === 0) {
     const empty = document.createElement('p');
     empty.className = 'empty';
-    empty.textContent = 'Для выбранной частоты нет актуальных метрик: еженедельные и ежемесячные скрываются, если уже заполнялись в текущем периоде.';
+    empty.textContent = 'Для выбранной частоты нет актуальных метрик: уже заполненные метрики скрываются.';
     elements.checklistBody.append(empty);
     return;
   }
@@ -225,7 +225,7 @@ function createMetricCell(item, row) {
   if (item.description) {
     const description = document.createElement('span');
     description.className = 'metric-format';
-    appendTextWithLinks(description, item.description);
+    appendTextWithLinks(description, `Описание: ${item.description}${item.goal ? ' —' : ''}`);
     wrapper.append(description);
   }
 
@@ -251,9 +251,6 @@ function createMetricMeta(item, row) {
     });
   }
   if (isMetricSubmitted(state.report, item.id)) badges.push({ label: 'Уже сохранено', className: 'metric-badge metric-badge-success' });
-  if (!row.status && !row.value && !row.comment && !isMetricSubmitted(state.report, item.id)) {
-    badges.push({ label: 'Ждёт ответа', className: 'metric-badge metric-badge-muted' });
-  }
   if (badges.length === 0) return null;
 
   const meta = document.createElement('div');
@@ -583,6 +580,11 @@ function getMetricDeadlineDate(deadline, reportDate) {
 
   const timeMatch = value.match(/^(\d{1,2})(?::(\d{2}))?$/u);
   if (timeMatch) return createKrasnoyarskDate(reportDate, Number(timeMatch[1]), Number(timeMatch[2] ?? 0));
+
+  const krasnoyarskTimeMatch = value.match(/(?:^|\s|к\s*)(\d{1,2})(?::(\d{2}))?\s*(?:по\s*)?(?:крск|красноярск\w*)/u);
+  if (krasnoyarskTimeMatch) {
+    return createKrasnoyarskDate(reportDate, Number(krasnoyarskTimeMatch[1]), Number(krasnoyarskTimeMatch[2] ?? 0));
+  }
 
   const weekdayIndex = getWeekdayIndex(value);
   if (weekdayIndex !== null) {
