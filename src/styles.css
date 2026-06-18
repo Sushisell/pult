@@ -261,10 +261,10 @@ textarea:focus {
 .check-row {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(220px, 0.85fr) minmax(420px, 1.6fr);
+  grid-template-columns: 1fr;
   gap: 26px;
   align-items: start;
-  min-height: 120px;
+  min-height: 0;
   border: 1px solid #e4e7ee;
   border-radius: 18px;
   padding: 26px;
@@ -726,6 +726,13 @@ textarea {
   display: none;
 }
 
+.manager-frequency-filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 18px;
+}
+
 .manager-note {
   margin-bottom: 16px;
   color: #838796;
@@ -954,13 +961,12 @@ textarea {
 
 .manager-sections {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 14px;
 }
 
 .manager-frequency-card,
-.manager-role-health,
-.manager-problems {
+.manager-role-health {
   border: 1px solid #e4e7ee;
   border-radius: 16px;
   padding: 16px;
@@ -1065,10 +1071,6 @@ textarea {
 .manager-role-grid strong.is-warning { color: #f5a915; }
 .manager-role-grid strong.is-danger { color: #ef2f3d; }
 
-.manager-problems {
-  margin-top: 14px;
-  background: linear-gradient(135deg, #fff7f4, #ffffff 55%);
-}
 
 @media (max-width: 980px) {
   .manager-hero,
