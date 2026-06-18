@@ -103,7 +103,7 @@ function exportCsv() {
 function getOwnerContext() {
   const employee = findEmployeeByFullName(state.report.owner, state.catalog.infoRows);
   const roleMetrics = employee ? getMetricsForRole(employee.role, state.catalog.checklist) : [];
-  const dueMetrics = employee ? getDueMetricsForDate(state.reports, state.date, employee.fullName, roleMetrics, { hideFilledForDate: true }) : [];
+  const dueMetrics = employee ? getDueMetricsForDate(state.reports, state.date, employee.fullName, roleMetrics, { hideSubmittedForDate: true }) : [];
   const metrics = state.frequencyFilter === 'all'
     ? dueMetrics
     : dueMetrics.filter((metric) => metric.category === state.frequencyFilter);
@@ -224,8 +224,14 @@ function createMetricCell(item, row) {
 
   if (item.description) {
     const description = document.createElement('span');
-    description.className = 'metric-format';
-    appendTextWithLinks(description, `Описание: ${item.description}${item.goal ? ' —' : ''}`);
+    description.className = 'metric-format metric-description';
+    appendTextWithLinks(description, `Описание: ${item.description}`);
+    if (item.goal) {
+      const divider = document.createElement('span');
+      divider.className = 'metric-divider';
+      divider.setAttribute('aria-hidden', 'true');
+      description.append(divider);
+    }
     wrapper.append(description);
   }
 

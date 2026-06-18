@@ -330,6 +330,20 @@ textarea:focus {
   line-height: 1.45;
 }
 
+.metric-description {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 4px;
+}
+
+.metric-divider {
+  flex: 1 1 80px;
+  min-width: 80px;
+  border-bottom: 1px solid #252737;
+  transform: translateY(-0.18em);
+}
+
 .metric-goal {
   margin-top: 3px;
 }
