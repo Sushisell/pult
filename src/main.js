@@ -424,8 +424,8 @@ function buildDashboardFrequencyStates(team, category) {
 
 function getDashboardPeriods(categoryId, date) {
   if (categoryId === 'daily') {
-    return Array.from({ length: 6 }, (_, index) => {
-      const isoDate = shiftISODate(date, -index);
+    return Array.from({ length: 5 }, (_, index) => {
+      const isoDate = shiftISODate(date, index - 4);
       return { id: isoDate, start: isoDate, end: isoDate, label: formatRuDate(isoDate) };
     });
   }
@@ -573,21 +573,25 @@ function createManagerSections(dashboard) {
 
 function createManagerFrequencySection(group) {
   const section = document.createElement('section');
-  section.className = 'manager-frequency-card';
+  section.className = `manager-frequency-card manager-frequency-card-${group.id}`;
   const totals = getDashboardTotals(group.states);
   const periods = getManagerSectionPeriods(group.states);
   const rows = getManagerMetricMatrixRows(group.states, periods);
   const metricLabel = rows.length === 1 ? 'метрика' : rows.length > 1 && rows.length < 5 ? 'метрики' : 'метрик';
+  const title = group.id === 'daily' ? 'Ежедневные проверки' : `${group.label} проверки`;
+  const subtitle = group.id === 'daily'
+    ? `${rows.length} ${metricLabel} · последние 5 дней до выбранной даты включительно`
+    : `${rows.length} ${metricLabel} · ${periods.length} периодов · статусы показаны только цветными кружками`;
 
   section.innerHTML = `
     <div class="manager-card-title manager-card-title-rich">
       <div>
         <span>${escapeHtml(group.icon)} ${escapeHtml(group.label)}</span>
-        <h3>${escapeHtml(group.label)} проверки</h3>
+        <h3>${escapeHtml(title)}</h3>
       </div>
       <b>${totals.health}%</b>
     </div>
-    <p class="manager-card-subtitle">${rows.length} ${metricLabel} · ${periods.length} периодов · статусы показаны только цветными кружками</p>
+    <p class="manager-card-subtitle">${escapeHtml(subtitle)}</p>
     <div class="manager-matrix-wrap">
       <table class="manager-matrix">
         <thead>
@@ -623,8 +627,14 @@ function getManagerSectionPeriods(states) {
 }
 
 function getManagerPeriodShortLabel(period) {
-  if (period.start === period.end) return formatRuDateShort(period.start);
+  if (period.start === period.end) return `${formatRuDateShort(period.start)} (${getRuWeekdayShort(period.start)})`;
   return `${formatRuDateShort(period.start)}–${formatRuDateShort(period.end)}`;
+}
+
+function getRuWeekdayShort(date) {
+  const weekdays = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  return weekdays[parsed.getUTCDay()] ?? '';
 }
 
 function formatRuDateShort(date) {
