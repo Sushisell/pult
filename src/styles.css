@@ -849,3 +849,245 @@ textarea {
     text-align: left;
   }
 }
+
+.manager-panel {
+  padding: 26px;
+  overflow: hidden;
+}
+
+.manager-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 18px;
+  align-items: stretch;
+  margin-bottom: 18px;
+}
+
+.manager-eyebrow {
+  margin: 0 0 8px;
+  color: #ef476f;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.manager-hero h2 {
+  margin: 0 0 8px;
+  color: #15162c;
+  font-size: clamp(1.45rem, 3vw, 2.2rem);
+}
+
+.manager-hero span {
+  color: #4b5568;
+  font-weight: 800;
+}
+
+.manager-health-card {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #e4e7ee;
+  border-radius: 18px;
+  padding: 20px;
+  background: radial-gradient(circle at 24px 24px, rgb(41 166 111 / 14%), transparent 80px), #ffffff;
+  box-shadow: 0 12px 32px rgb(42 48 70 / 7%);
+}
+
+.manager-health-card span,
+.manager-health-card small,
+.manager-kpi span,
+.manager-card-title span {
+  color: #4b5568;
+  font-size: 0.8rem;
+  font-weight: 850;
+}
+
+.manager-health-card strong {
+  color: #15162c;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.manager-health-card small {
+  color: #29a66f;
+}
+
+.manager-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.manager-kpi {
+  position: relative;
+  min-height: 100px;
+  border: 1px solid #e4e7ee;
+  border-radius: 14px;
+  padding: 18px 18px 16px;
+  background: #ffffff;
+}
+
+.manager-kpi::before {
+  content: "";
+  display: block;
+  width: 18px;
+  height: 18px;
+  margin-bottom: 12px;
+  border-radius: 50%;
+  background: #15162c;
+}
+
+.manager-kpi-total::before { background: #15162c; }
+.manager-kpi-done::before { background: #29a66f; }
+.manager-kpi-fixed::before { background: #f5a915; }
+.manager-kpi-issue::before { background: #ef2f3d; }
+.manager-kpi-empty::before { background: #aeb4c2; }
+
+.manager-kpi strong {
+  display: block;
+  margin-top: 6px;
+  color: #15162c;
+  font-size: 1.65rem;
+  line-height: 1;
+}
+
+.manager-sections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.manager-frequency-card,
+.manager-role-health,
+.manager-problems {
+  border: 1px solid #e4e7ee;
+  border-radius: 16px;
+  padding: 16px;
+  background: #ffffff;
+  box-shadow: 0 10px 28px rgb(42 48 70 / 5%);
+}
+
+.manager-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.manager-card-title h3 {
+  margin: 0;
+  color: #15162c;
+  font-size: 1rem;
+}
+
+.manager-card-title b {
+  color: #29a66f;
+  font-size: 1.15rem;
+}
+
+.manager-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.manager-table td {
+  border-top: 1px solid #edf0f5;
+  padding: 9px 6px;
+  color: #15162c;
+  vertical-align: top;
+}
+
+.manager-table td:nth-child(2),
+.manager-table td:nth-child(3) {
+  color: #586072;
+}
+
+.manager-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: #29a66f;
+}
+
+.manager-dot-fixed { background: #f5a915; }
+.manager-dot-issue { background: #ef2f3d; }
+.manager-dot-empty { background: #aeb4c2; }
+
+.manager-progress {
+  height: 8px;
+  margin-top: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e9ecf3;
+}
+
+.manager-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #29a66f, #42c97b);
+}
+
+.manager-role-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.manager-role-grid article {
+  border: 1px solid #e9ecf3;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.manager-role-grid span,
+.manager-role-grid strong {
+  display: block;
+}
+
+.manager-role-grid span {
+  color: #15162c;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.manager-role-grid strong {
+  margin-top: 8px;
+  color: #29a66f;
+  font-size: 1.3rem;
+}
+
+.manager-role-grid strong.is-warning { color: #f5a915; }
+.manager-role-grid strong.is-danger { color: #ef2f3d; }
+
+.manager-problems {
+  margin-top: 14px;
+  background: linear-gradient(135deg, #fff7f4, #ffffff 55%);
+}
+
+@media (max-width: 980px) {
+  .manager-hero,
+  .manager-sections {
+    grid-template-columns: 1fr;
+  }
+
+  .manager-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .manager-panel {
+    padding: 18px;
+  }
+
+  .manager-kpi-grid,
+  .manager-role-grid {
+    grid-template-columns: 1fr;
+  }
+}

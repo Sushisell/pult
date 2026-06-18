@@ -379,38 +379,192 @@ function renderManagerDashboard(employee) {
     return;
   }
 
+  const dashboard = buildManagerMetricsDashboard(team);
   elements.managerDashboard.hidden = false;
-  const title = document.createElement('h2');
-  title.textContent = `Дашборд руководителя: ${employee.role}`;
-  const note = document.createElement('p');
-  note.className = 'manager-note';
-  note.textContent = 'Статус заполнения сотрудников за выбранную дату. Еженедельные и ежемесячные метрики учитываются только если они актуальны в текущем периоде.';
-  const list = document.createElement('div');
-  list.className = 'manager-list';
+  elements.managerDashboard.append(
+    createManagerHero(employee, dashboard),
+    createManagerKpiGrid(dashboard),
+    createManagerSections(dashboard),
+    createManagerProblemPanel(dashboard),
+  );
+}
 
-  for (const teammate of team) {
-    const metrics = getMetricsForRole(teammate.role, state.catalog.checklist);
-    const dueMetrics = getDueMetricsForDate(state.sheetReports, state.date, teammate.fullName, metrics);
+function buildManagerMetricsDashboard(team) {
+  const teammates = team.map((teammate) => {
+    const roleMetrics = getMetricsForRole(teammate.role, state.catalog.checklist);
+    const dueMetrics = getDueMetricsForDate(state.sheetReports, state.date, teammate.fullName, roleMetrics);
     const report = getReportForDate(state.sheetReports, state.date, state.catalog.checklist, teammate.fullName);
-    const completion = getCompletion(report, dueMetrics);
-    const filledAny = dueMetrics.some((metric) => isMetricFilled(report, metric.id));
-    const card = document.createElement('article');
-    card.className = 'manager-card';
-    card.innerHTML = `
-      <div>
-        <strong>${escapeHtml(teammate.fullName)}</strong>
-        <span>${escapeHtml(teammate.role)}</span>
-      </div>
-      <div class="manager-status">
-        <b>${completion.percent}%</b>
-        <span>${filledAny ? 'Заполнялось' : 'Не заполнено'} · ${completion.done}/${completion.total}</span>
-      </div>
-    `;
-    card.append(createManagerMetricList(dueMetrics, report));
-    list.append(card);
-  }
+    const metricStates = dueMetrics.map((metric) => createDashboardMetricState(metric, report, teammate));
+    return {
+      ...teammate,
+      roleMetrics,
+      dueMetrics,
+      report,
+      metricStates,
+      completion: getCompletion(report, dueMetrics),
+    };
+  });
+  const metricStates = teammates.flatMap((teammate) => teammate.metricStates);
+  return {
+    team: teammates,
+    metricStates,
+    totals: getDashboardTotals(metricStates),
+    byFrequency: CATEGORIES.map((category) => ({
+      ...category,
+      states: metricStates.filter((entry) => entry.metric.category === category.id),
+    })).filter((group) => group.states.length > 0),
+    roleHealth: createRoleHealth(teammates),
+    problems: metricStates.filter((entry) => entry.status === 'issue' || entry.status === 'empty'),
+  };
+}
 
-  elements.managerDashboard.append(title, note, list);
+function createDashboardMetricState(metric, report, teammate) {
+  const row = report.rows.find((entry) => entry.id === metric.id);
+  const filled = isMetricFilled(report, metric.id);
+  const rawStatus = row?.status ?? '';
+  const status = filled ? rawStatus || 'done' : 'empty';
+  return { metric, report, row, teammate, filled, status };
+}
+
+function getDashboardTotals(states) {
+  const total = states.length;
+  const counts = {
+    done: states.filter((entry) => entry.status === 'done').length,
+    fixed: states.filter((entry) => entry.status === 'fixed').length,
+    issue: states.filter((entry) => entry.status === 'issue').length,
+    empty: states.filter((entry) => entry.status === 'empty').length,
+  };
+  return {
+    ...counts,
+    total,
+    health: total === 0 ? 0 : Math.round(((counts.done + counts.fixed) / total) * 100),
+  };
+}
+
+function createManagerHero(employee, dashboard) {
+  const hero = document.createElement('div');
+  hero.className = 'manager-hero';
+  hero.innerHTML = `
+    <div>
+      <p class="manager-eyebrow">Отображение метрик руководителю</p>
+      <h2>Контроль процессов: ${escapeHtml(employee.role)}</h2>
+      <span>Состояние команды на ${escapeHtml(formatRuDate(state.date))}</span>
+    </div>
+    <div class="manager-health-card">
+      <span>Индекс здоровья процессов</span>
+      <strong>${dashboard.totals.health}%</strong>
+      <small>${dashboard.totals.health >= 85 ? 'Система работает штатно' : dashboard.totals.health >= 70 ? 'Есть зоны внимания' : 'Нужна реакция руководителя'}</small>
+    </div>
+  `;
+  return hero;
+}
+
+function createManagerKpiGrid({ totals }) {
+  const grid = document.createElement('div');
+  grid.className = 'manager-kpi-grid';
+  const items = [
+    ['Всего метрик', totals.total, 'total'],
+    ['Все ок', totals.done, 'done'],
+    ['Ошибки исправлены', totals.fixed, 'fixed'],
+    ['Ошибки не исправлены', totals.issue, 'issue'],
+    ['Не заполнено', totals.empty, 'empty'],
+  ];
+  grid.innerHTML = items.map(([label, value, status]) => `
+    <article class="manager-kpi manager-kpi-${status}">
+      <span>${escapeHtml(label)}</span>
+      <strong>${value}</strong>
+    </article>
+  `).join('');
+  return grid;
+}
+
+function createManagerSections(dashboard) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'manager-sections';
+  for (const group of dashboard.byFrequency) wrapper.append(createManagerFrequencySection(group));
+  if (dashboard.roleHealth.length > 0) wrapper.append(createManagerRoleHealth(dashboard.roleHealth));
+  return wrapper;
+}
+
+function createManagerFrequencySection(group) {
+  const section = document.createElement('section');
+  section.className = 'manager-frequency-card';
+  const totals = getDashboardTotals(group.states);
+  const rows = group.states.slice(0, 8).map((entry) => `
+    <tr>
+      <td>${escapeHtml(entry.metric.metric)}</td>
+      <td>${escapeHtml(entry.teammate.fullName)}</td>
+      <td><span class="manager-dot manager-dot-${entry.status}"></span>${escapeHtml(getDashboardStatusLabel(entry.status))}</td>
+    </tr>
+  `).join('');
+  section.innerHTML = `
+    <div class="manager-card-title">
+      <h3>${escapeHtml(group.label)} проверки</h3>
+      <b>${totals.health}%</b>
+    </div>
+    <table class="manager-table"><tbody>${rows}</tbody></table>
+    <div class="manager-progress"><span style="width:${totals.health}%"></span></div>
+  `;
+  return section;
+}
+
+function createManagerRoleHealth(roleHealth) {
+  const section = document.createElement('section');
+  section.className = 'manager-role-health';
+  section.innerHTML = `
+    <div class="manager-card-title"><h3>Здоровье процессов</h3></div>
+    <div class="manager-role-grid">
+      ${roleHealth.map((item) => `
+        <article>
+          <span>${escapeHtml(item.role)}</span>
+          <strong class="${item.health < 70 ? 'is-danger' : item.health < 85 ? 'is-warning' : ''}">${item.health}%</strong>
+          <div class="manager-progress"><span style="width:${item.health}%"></span></div>
+        </article>
+      `).join('')}
+    </div>
+  `;
+  return section;
+}
+
+function createManagerProblemPanel({ problems }) {
+  const section = document.createElement('section');
+  section.className = 'manager-problems';
+  const visibleProblems = problems.slice(0, 5);
+  section.innerHTML = `
+    <div class="manager-card-title"><h3>Проблемные зоны</h3><span>${problems.length}</span></div>
+    ${visibleProblems.length === 0 ? '<p class="empty">Критичных зон нет — все актуальные метрики заполнены без неисправленных ошибок.</p>' : `
+      <table class="manager-table"><tbody>
+        ${visibleProblems.map((entry) => `
+          <tr>
+            <td>${escapeHtml(entry.metric.metric)}</td>
+            <td>${escapeHtml(entry.teammate.fullName)}</td>
+            <td><span class="manager-dot manager-dot-${entry.status}"></span>${escapeHtml(getDashboardStatusLabel(entry.status))}</td>
+          </tr>
+        `).join('')}
+      </tbody></table>
+    `}
+  `;
+  return section;
+}
+
+function createRoleHealth(teammates) {
+  const groups = new Map();
+  for (const teammate of teammates) {
+    const current = groups.get(teammate.role) ?? [];
+    current.push(...teammate.metricStates);
+    groups.set(teammate.role, current);
+  }
+  return [...groups.entries()].map(([role, states]) => ({ role, health: getDashboardTotals(states).health }));
+}
+
+function getDashboardStatusLabel(status) {
+  if (status === 'empty') return 'Не заполнено';
+  return STATUS[status] ?? 'Все ок';
+}
+
+function formatRuDate(date) {
+  const [year, month, day] = String(date).split('-');
+  return `${day}.${month}.${year}`;
 }
 
 function createManagerMetricList(metrics, report) {
