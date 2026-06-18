@@ -567,7 +567,7 @@ function createManagerSections(dashboard) {
   const wrapper = document.createElement('div');
   wrapper.className = 'manager-sections';
   for (const group of dashboard.byFrequency) wrapper.append(createManagerFrequencySection(group));
-  wrapper.append(createManagerRoleHealth(dashboard.roleHealth, dashboard.totals));
+  wrapper.append(createManagerLegend(), createManagerRoleHealth(dashboard.roleHealth, dashboard.totals));
   return wrapper;
 }
 
@@ -575,22 +575,132 @@ function createManagerFrequencySection(group) {
   const section = document.createElement('section');
   section.className = 'manager-frequency-card';
   const totals = getDashboardTotals(group.states);
-  const rows = group.states.slice(0, 8).map((entry) => `
-    <tr>
-      <td>${escapeHtml(entry.metric.metric)}</td>
-      <td>${escapeHtml(entry.period.label)}</td>
-      <td><span class="manager-dot manager-dot-${entry.status}"></span>${escapeHtml(getDashboardStatusLabel(entry.status))}</td>
-    </tr>
-  `).join('');
+  const periods = getManagerSectionPeriods(group.states);
+  const rows = getManagerMetricMatrixRows(group.states, periods);
+  const metricLabel = rows.length === 1 ? 'метрика' : rows.length > 1 && rows.length < 5 ? 'метрики' : 'метрик';
+
   section.innerHTML = `
-    <div class="manager-card-title">
-      <h3>${escapeHtml(group.label)} проверки</h3>
+    <div class="manager-card-title manager-card-title-rich">
+      <div>
+        <span>${escapeHtml(group.icon)} ${escapeHtml(group.label)}</span>
+        <h3>${escapeHtml(group.label)} проверки</h3>
+      </div>
       <b>${totals.health}%</b>
     </div>
-    <table class="manager-table"><tbody>${rows}</tbody></table>
-    <div class="manager-progress"><span style="width:${totals.health}%"></span></div>
+    <p class="manager-card-subtitle">${rows.length} ${metricLabel} · ${periods.length} периодов · статусы показаны только цветными кружками</p>
+    <div class="manager-matrix-wrap">
+      <table class="manager-matrix">
+        <thead>
+          <tr>
+            <th scope="col">Метрика</th>
+            ${periods.map((period) => `<th scope="col">${escapeHtml(period.shortLabel)}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((row) => `
+            <tr>
+              <th scope="row">${escapeHtml(row.metric.metric)}</th>
+              ${periods.map((period) => createManagerMatrixDotCell(row.byPeriod.get(period.id))).join('')}
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="manager-progress" aria-label="Здоровье ${escapeHtml(group.label.toLowerCase())}: ${totals.health}%"><span style="width:${totals.health}%"></span></div>
   `;
   return section;
+}
+
+function getManagerSectionPeriods(states) {
+  const periods = [];
+  const seen = new Set();
+  for (const entry of states) {
+    if (seen.has(entry.period.id)) continue;
+    seen.add(entry.period.id);
+    periods.push({ ...entry.period, shortLabel: getManagerPeriodShortLabel(entry.period) });
+  }
+  return periods;
+}
+
+function getManagerPeriodShortLabel(period) {
+  if (period.start === period.end) return formatRuDateShort(period.start);
+  return `${formatRuDateShort(period.start)}–${formatRuDateShort(period.end)}`;
+}
+
+function formatRuDateShort(date) {
+  const [, month, day] = String(date).split('-');
+  return `${day}.${month}`;
+}
+
+function getManagerMetricMatrixRows(states, periods) {
+  const rows = new Map();
+  for (const entry of states) {
+    const row = rows.get(entry.metric.id) ?? { metric: entry.metric, byPeriod: new Map() };
+    const entries = row.byPeriod.get(entry.period.id)?.entries ?? [];
+    entries.push(entry);
+    row.byPeriod.set(entry.period.id, createManagerMatrixCellState(entries));
+    rows.set(entry.metric.id, row);
+  }
+  return [...rows.values()].sort((a, b) => a.metric.metric.localeCompare(b.metric.metric, 'ru'))
+    .map((row) => {
+      for (const period of periods) {
+        if (!row.byPeriod.has(period.id)) row.byPeriod.set(period.id, createManagerMatrixCellState([]));
+      }
+      return row;
+    });
+}
+
+function createManagerMatrixCellState(entries) {
+  const statusPriority = ['issue', 'empty', 'fixed', 'done'];
+  const counts = Object.fromEntries([...statusPriority, 'total'].map((key) => [key, 0]));
+  for (const entry of entries) {
+    counts[entry.status] = (counts[entry.status] ?? 0) + 1;
+    counts.total += 1;
+  }
+  const status = statusPriority.find((key) => counts[key] > 0) ?? 'empty';
+  return { status, counts, entries };
+}
+
+function createManagerMatrixDotCell(cell) {
+  const status = cell?.status ?? 'empty';
+  const title = getManagerMatrixTitle(cell);
+  return `<td><span class="manager-dot manager-dot-${status}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"></span></td>`;
+}
+
+function getManagerMatrixTitle(cell) {
+  if (!cell || cell.counts.total === 0) return 'Не заполнено';
+  return [
+    `Всего: ${cell.counts.total}`,
+    `ОК: ${cell.counts.done}`,
+    `Исправлено: ${cell.counts.fixed}`,
+    `Проблема: ${cell.counts.issue}`,
+    `Не заполнено: ${cell.counts.empty}`,
+  ].join(' · ');
+}
+
+
+function createManagerLegend() {
+  const legend = document.createElement('section');
+  legend.className = 'manager-legend';
+  legend.setAttribute('aria-label', 'Расшифровка статусов дашборда');
+  const items = [
+    ['done', 'Все ок', 'Проверка выполнена без замечаний'],
+    ['fixed', 'Исправлено', 'Были ошибки, но их уже исправили'],
+    ['issue', 'Нужна помощь', 'Ошибка не исправлена или требует решения руководителя'],
+    ['empty', 'Нет данных', 'Отчёт по метрике ещё не заполнен'],
+  ];
+  legend.innerHTML = `
+    <h3>Что означают кружочки</h3>
+    <div class="manager-legend-grid">
+      ${items.map(([status, label, description]) => `
+        <div class="manager-legend-item">
+          <span class="manager-dot manager-dot-${status}" aria-hidden="true"></span>
+          <div><strong>${escapeHtml(label)}</strong><small>${escapeHtml(description)}</small></div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  return legend;
 }
 
 function createManagerRoleHealth(roleHealth, totals) {
