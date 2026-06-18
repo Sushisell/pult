@@ -303,6 +303,16 @@ textarea:focus {
   background: linear-gradient(180deg, #fbfcff, #f7f9fd);
 }
 
+.check-row.is-deadline-expired {
+  border-color: #ef476f;
+  box-shadow: 0 14px 34px rgb(239 71 111 / 16%);
+}
+
+.check-row.is-deadline-expired:hover {
+  border-color: #d9365f;
+  box-shadow: 0 18px 44px rgb(239 71 111 / 20%);
+}
+
 .metric-title {
   display: block;
   margin-bottom: 10px;
@@ -352,6 +362,11 @@ textarea:focus {
 .metric-badge-muted {
   color: #70778a;
   background: #f6f7fb;
+}
+
+.metric-badge-danger {
+  color: #b33d57;
+  background: #fff0f3;
 }
 
 .field-error {

@@ -1,6 +1,6 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.5';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.5';
-import { APP_VERSION } from './version.js?v=0.1.5';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.6';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.6';
+import { APP_VERSION } from './version.js?v=0.1.6';
 import {
   buildCsv,
   buildDataRows,
@@ -20,7 +20,7 @@ import {
   saveReports,
   todayISO,
   upsertReport,
-} from './storage.js?v=0.1.5';
+} from './storage.js?v=0.1.6';
 
 const state = {
   localReports: loadReports(),
@@ -41,8 +41,7 @@ const elements = {
   dateInput: document.querySelector('#date-input'),
   ownerInput: document.querySelector('#owner-input'),
   dateError: document.querySelector('#date-error'),
-  saveDailyButton: document.querySelector('#save-daily-button'),
-  saveWeeklyButton: document.querySelector('#save-weekly-button'),
+  saveReportButton: document.querySelector('#save-report-button'),
   saveFeedback: document.querySelector('#save-feedback'),
   exportButton: document.querySelector('#export-button'),
   tabs: document.querySelector('#category-tabs'),
@@ -210,6 +209,7 @@ function createChecklistCard(item, row) {
   if (row.status === 'issue') card.classList.add('is-issue');
   if (item.type === 'number') card.classList.add('is-number');
   if (isMetricLocked(item)) card.classList.add('is-locked');
+  if (isMetricDeadlineExpired(item)) card.classList.add('is-deadline-expired');
 
   card.append(createMetricCell(item, row), createControlCell(item, row));
   return card;
@@ -244,7 +244,12 @@ function createMetricCell(item, row) {
 
 function createMetricMeta(item, row) {
   const badges = [];
-  if (item.deadline) badges.push({ label: `Срок: ${item.deadline}`, className: 'metric-badge' });
+  if (item.deadline) {
+    badges.push({
+      label: isMetricDeadlineExpired(item) ? `Срок истёк: ${item.deadline}` : `Срок: ${item.deadline}`,
+      className: isMetricDeadlineExpired(item) ? 'metric-badge metric-badge-danger' : 'metric-badge',
+    });
+  }
   if (isMetricSubmitted(state.report, item.id)) badges.push({ label: 'Уже сохранено', className: 'metric-badge metric-badge-success' });
   if (!row.status && !row.value && !row.comment && !isMetricSubmitted(state.report, item.id)) {
     badges.push({ label: 'Ждёт ответа', className: 'metric-badge metric-badge-muted' });
@@ -528,9 +533,9 @@ function setReportDate(nextDate) {
   return true;
 }
 
-async function saveFrequencyReport(category) {
+async function saveReport() {
   const context = getOwnerContext();
-  const metrics = context.roleMetrics.filter((metric) => metric.category === category);
+  const metrics = context.roleMetrics;
   if (!context.employee || metrics.length === 0) {
     elements.saveFeedback.textContent = 'Нечего сохранять: данные из таблицы не загружены или для выбранного ФИО нет метрик.';
     updateSaveButtons();
@@ -538,12 +543,11 @@ async function saveFrequencyReport(category) {
   }
 
   const pendingMetrics = getPendingFilledMetrics(state.report, metrics);
-  const label = category === 'weekly' ? 'Еженедельный' : 'Ежедневный';
 
   if (pendingMetrics.length === 0) {
     elements.saveFeedback.textContent = areAllMetricsSubmitted(state.report, metrics)
-      ? `${label} отчёт уже полностью сохранён за ${state.date}.`
-      : `Заполните хотя бы одну новую метрику, чтобы сохранить ${label.toLowerCase()} отчёт. Остальные можно дозаполнить позже.`;
+      ? `Отчёт уже полностью сохранён за ${state.date}.`
+      : 'Заполните хотя бы одну новую метрику, чтобы сохранить отчёт. Остальные можно дозаполнить позже.';
     updateSaveButtons();
     return;
   }
@@ -556,10 +560,10 @@ async function saveFrequencyReport(category) {
     const remoteNote = result.skipped ? '' : ' Данные отправлены на лист «Данные».';
     const leftCount = metrics.length - getCompletion(state.report, metrics).done;
     const laterNote = leftCount > 0 ? ` Осталось ${leftCount}; их можно дозаполнить позже.` : '';
-    elements.saveFeedback.textContent = `${label} отчёт сохранён за ${state.date}: ${pendingMetrics.length} метрик.${remoteNote}${laterNote}`;
+    elements.saveFeedback.textContent = `Отчёт сохранён за ${state.date}: ${pendingMetrics.length} метрик.${remoteNote}${laterNote}`;
   } catch (error) {
     console.warn('Не удалось отправить данные в таблицу.', error);
-    elements.saveFeedback.textContent = `${label} отчёт сохранён локально за ${state.date}, но таблица «Данные» не обновилась. Можно повторить сохранение позже.`;
+    elements.saveFeedback.textContent = `Отчёт сохранён локально за ${state.date}, но таблица «Данные» не обновилась. Можно повторить сохранение позже.`;
   }
 }
 
@@ -567,15 +571,67 @@ function isMetricLocked(item) {
   return isMetricSubmitted(state.report, item.id);
 }
 
-function updateSaveButtons() {
-  updateSaveButton(elements.saveDailyButton, 'daily');
-  updateSaveButton(elements.saveWeeklyButton, 'weekly');
+function isMetricDeadlineExpired(item, now = new Date()) {
+  const deadlineAt = getMetricDeadlineDate(item.deadline, state.date);
+  if (!deadlineAt) return false;
+  return now.getTime() > deadlineAt.getTime();
 }
 
-function updateSaveButton(button, category) {
+function getMetricDeadlineDate(deadline, reportDate) {
+  const value = normalizeText(deadline).replaceAll('ё', 'е');
+  if (!value || !reportDate) return null;
+
+  const timeMatch = value.match(/^(\d{1,2})(?::(\d{2}))?$/u);
+  if (timeMatch) return createKrasnoyarskDate(reportDate, Number(timeMatch[1]), Number(timeMatch[2] ?? 0));
+
+  const weekdayIndex = getWeekdayIndex(value);
+  if (weekdayIndex !== null) {
+    const [year, month, dayOfMonth] = reportDate.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, dayOfMonth));
+    const day = date.getUTCDay() === 0 ? 7 : date.getUTCDay();
+    date.setUTCDate(date.getUTCDate() + weekdayIndex - day);
+    return createKrasnoyarskDate(date.toISOString().slice(0, 10), 18, 0);
+  }
+
+  const monthDayMatch = value.match(/^(\d{1,2})(?:\s*(?:число|числа|го|ое|е))?$/u);
+  if (monthDayMatch) {
+    const [, month] = reportDate.split('-');
+    const year = reportDate.slice(0, 4);
+    const day = String(Number(monthDayMatch[1])).padStart(2, '0');
+    return createKrasnoyarskDate(`${year}-${month}-${day}`, 18, 0);
+  }
+
+  return null;
+}
+
+function createKrasnoyarskDate(date, hours, minutes) {
+  if (hours > 23 || minutes > 59) return null;
+  const [year, month, day] = date.split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(Date.UTC(year, month - 1, day, hours - 7, minutes));
+}
+
+function getWeekdayIndex(value) {
+  const weekdays = [
+    ['понедельник', 'пн'],
+    ['вторник', 'вт'],
+    ['среда', 'ср'],
+    ['четверг', 'чт'],
+    ['пятница', 'пт'],
+    ['суббота', 'сб'],
+    ['воскресенье', 'вс'],
+  ];
+  const index = weekdays.findIndex((aliases) => aliases.includes(value));
+  return index === -1 ? null : index + 1;
+}
+
+function updateSaveButtons() {
+  updateSaveButton(elements.saveReportButton);
+}
+
+function updateSaveButton(button) {
   if (!button) return;
-  const { employee, roleMetrics } = getOwnerContext();
-  const metrics = roleMetrics.filter((metric) => metric.category === category);
+  const { employee, roleMetrics: metrics } = getOwnerContext();
   const hasMetrics = Boolean(employee) && metrics.length > 0;
   const pendingMetrics = getPendingFilledMetrics(state.report, metrics);
   const submitted = areAllMetricsSubmitted(state.report, metrics);
@@ -598,8 +654,7 @@ elements.ownerInput.addEventListener('change', (event) => {
   state.report = createEditableReport(state.date, event.target.value);
   render();
 });
-elements.saveDailyButton.addEventListener('click', () => saveFrequencyReport('daily'));
-elements.saveWeeklyButton.addEventListener('click', () => saveFrequencyReport('weekly'));
+elements.saveReportButton.addEventListener('click', saveReport);
 elements.exportButton.addEventListener('click', exportCsv);
 
 
