@@ -31,6 +31,7 @@ const state = {
   reports: {},
   date: todayISO(),
   frequencyFilter: 'all',
+  dashboardFrequencyFilters: new Set(CATEGORIES.map((category) => category.id)),
   report: null,
   catalog: {
     infoRows: INFO_ROWS,
@@ -383,47 +384,106 @@ function renderManagerDashboard(employee) {
   elements.managerDashboard.hidden = false;
   elements.managerDashboard.append(
     createManagerHero(employee, dashboard),
+    createManagerFrequencyFilters(),
     createManagerKpiGrid(dashboard),
     createManagerSections(dashboard),
-    createManagerProblemPanel(dashboard),
   );
 }
 
 function buildManagerMetricsDashboard(team) {
-  const teammates = team.map((teammate) => {
-    const roleMetrics = getMetricsForRole(teammate.role, state.catalog.checklist);
-    const dueMetrics = getDueMetricsForDate(state.sheetReports, state.date, teammate.fullName, roleMetrics);
-    const report = getReportForDate(state.sheetReports, state.date, state.catalog.checklist, teammate.fullName);
-    const metricStates = dueMetrics.map((metric) => createDashboardMetricState(metric, report, teammate));
-    return {
-      ...teammate,
-      roleMetrics,
-      dueMetrics,
-      report,
-      metricStates,
-      completion: getCompletion(report, dueMetrics),
-    };
-  });
-  const metricStates = teammates.flatMap((teammate) => teammate.metricStates);
+  const selectedCategories = getSelectedDashboardCategories();
+  const metricStates = selectedCategories.flatMap((category) => buildDashboardFrequencyStates(team, category));
   return {
-    team: teammates,
+    team,
     metricStates,
     totals: getDashboardTotals(metricStates),
-    byFrequency: CATEGORIES.map((category) => ({
+    byFrequency: selectedCategories.map((category) => ({
       ...category,
       states: metricStates.filter((entry) => entry.metric.category === category.id),
     })).filter((group) => group.states.length > 0),
-    roleHealth: createRoleHealth(teammates),
-    problems: metricStates.filter((entry) => entry.status === 'issue' || entry.status === 'empty'),
+    roleHealth: createRoleHealth(metricStates),
   };
 }
 
-function createDashboardMetricState(metric, report, teammate) {
+function getSelectedDashboardCategories() {
+  const selected = CATEGORIES.filter((category) => state.dashboardFrequencyFilters.has(category.id));
+  return selected.length > 0 ? selected : CATEGORIES;
+}
+
+function buildDashboardFrequencyStates(team, category) {
+  const periods = getDashboardPeriods(category.id, state.date);
+  return periods.flatMap((period) => team.flatMap((teammate) => {
+    const roleMetrics = getMetricsForRole(teammate.role, state.catalog.checklist)
+      .filter((metric) => metric.category === category.id);
+    return roleMetrics.map((metric) => {
+      const report = getDashboardPeriodReport(teammate.fullName, metric, period);
+      return createDashboardMetricState(metric, report, teammate, period);
+    });
+  }));
+}
+
+function getDashboardPeriods(categoryId, date) {
+  if (categoryId === 'daily') {
+    return Array.from({ length: 6 }, (_, index) => {
+      const isoDate = shiftISODate(date, -index);
+      return { id: isoDate, start: isoDate, end: isoDate, label: formatRuDate(isoDate) };
+    });
+  }
+
+  if (categoryId === 'weekly') {
+    return Array.from({ length: 3 }, (_, index) => {
+      const weekDate = shiftISODate(date, index * -7);
+      const period = getWeekPeriod(weekDate);
+      return { ...period, id: period.start, label: `${formatRuDate(period.start)}–${formatRuDate(period.end)}` };
+    });
+  }
+
+  const period = getMonthPeriod(date);
+  return [{ ...period, id: period.start, label: `${formatRuDate(period.start)}–${formatRuDate(period.end)}` }];
+}
+
+function getDashboardPeriodReport(owner, metric, period) {
+  if (metric.category === 'daily') {
+    return getReportForDate(state.sheetReports, period.start, state.catalog.checklist, owner);
+  }
+
+  const reports = Object.values(state.sheetReports)
+    .filter((report) => report.owner === owner && report.date >= period.start && report.date <= period.end)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  return reports.find((report) => isMetricFilled(report, metric.id))
+    ?? getReportForDate(state.sheetReports, period.start, state.catalog.checklist, owner);
+}
+
+function shiftISODate(date, days) {
+  const [year, month, day] = String(date).split('-').map(Number);
+  const shifted = new Date(Date.UTC(year, month - 1, day));
+  shifted.setUTCDate(shifted.getUTCDate() + days);
+  return shifted.toISOString().slice(0, 10);
+}
+
+function getWeekPeriod(date) {
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  const day = parsed.getUTCDay() || 7;
+  const start = new Date(parsed);
+  start.setUTCDate(parsed.getUTCDate() - day + 1);
+  const end = new Date(start);
+  end.setUTCDate(start.getUTCDate() + 6);
+  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+}
+
+function getMonthPeriod(date) {
+  const [year, month] = String(date).split('-').map(Number);
+  const start = new Date(Date.UTC(year, month - 1, 1));
+  const end = new Date(Date.UTC(year, month, 0));
+  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+}
+
+function createDashboardMetricState(metric, report, teammate, period) {
   const row = report.rows.find((entry) => entry.id === metric.id);
   const filled = isMetricFilled(report, metric.id);
   const rawStatus = row?.status ?? '';
   const status = filled ? rawStatus || 'done' : 'empty';
-  return { metric, report, row, teammate, filled, status };
+  return { metric, report, row, teammate, filled, status, period };
 }
 
 function getDashboardTotals(states) {
@@ -459,6 +519,31 @@ function createManagerHero(employee, dashboard) {
   return hero;
 }
 
+function createManagerFrequencyFilters() {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'manager-frequency-filters';
+  wrapper.setAttribute('aria-label', 'Диаграммы для дашборда руководителя');
+
+  for (const category of CATEGORIES) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'frequency-filter';
+    button.textContent = `${category.icon} ${category.label}`;
+    button.setAttribute('aria-pressed', String(state.dashboardFrequencyFilters.has(category.id)));
+    button.addEventListener('click', () => {
+      if (state.dashboardFrequencyFilters.has(category.id) && state.dashboardFrequencyFilters.size > 1) {
+        state.dashboardFrequencyFilters.delete(category.id);
+      } else {
+        state.dashboardFrequencyFilters.add(category.id);
+      }
+      render();
+    });
+    wrapper.append(button);
+  }
+
+  return wrapper;
+}
+
 function createManagerKpiGrid({ totals }) {
   const grid = document.createElement('div');
   grid.className = 'manager-kpi-grid';
@@ -482,7 +567,7 @@ function createManagerSections(dashboard) {
   const wrapper = document.createElement('div');
   wrapper.className = 'manager-sections';
   for (const group of dashboard.byFrequency) wrapper.append(createManagerFrequencySection(group));
-  if (dashboard.roleHealth.length > 0) wrapper.append(createManagerRoleHealth(dashboard.roleHealth));
+  wrapper.append(createManagerRoleHealth(dashboard.roleHealth, dashboard.totals));
   return wrapper;
 }
 
@@ -493,7 +578,7 @@ function createManagerFrequencySection(group) {
   const rows = group.states.slice(0, 8).map((entry) => `
     <tr>
       <td>${escapeHtml(entry.metric.metric)}</td>
-      <td>${escapeHtml(entry.teammate.fullName)}</td>
+      <td>${escapeHtml(entry.period.label)}</td>
       <td><span class="manager-dot manager-dot-${entry.status}"></span>${escapeHtml(getDashboardStatusLabel(entry.status))}</td>
     </tr>
   `).join('');
@@ -508,11 +593,11 @@ function createManagerFrequencySection(group) {
   return section;
 }
 
-function createManagerRoleHealth(roleHealth) {
+function createManagerRoleHealth(roleHealth, totals) {
   const section = document.createElement('section');
   section.className = 'manager-role-health';
   section.innerHTML = `
-    <div class="manager-card-title"><h3>Здоровье процессов</h3></div>
+    <div class="manager-card-title"><h3>Здоровье процессов по выбранным диаграммам</h3><b>${totals.health}%</b></div>
     <div class="manager-role-grid">
       ${roleHealth.map((item) => `
         <article>
@@ -526,35 +611,16 @@ function createManagerRoleHealth(roleHealth) {
   return section;
 }
 
-function createManagerProblemPanel({ problems }) {
-  const section = document.createElement('section');
-  section.className = 'manager-problems';
-  const visibleProblems = problems.slice(0, 5);
-  section.innerHTML = `
-    <div class="manager-card-title"><h3>Проблемные зоны</h3><span>${problems.length}</span></div>
-    ${visibleProblems.length === 0 ? '<p class="empty">Критичных зон нет — все актуальные метрики заполнены без неисправленных ошибок.</p>' : `
-      <table class="manager-table"><tbody>
-        ${visibleProblems.map((entry) => `
-          <tr>
-            <td>${escapeHtml(entry.metric.metric)}</td>
-            <td>${escapeHtml(entry.teammate.fullName)}</td>
-            <td><span class="manager-dot manager-dot-${entry.status}"></span>${escapeHtml(getDashboardStatusLabel(entry.status))}</td>
-          </tr>
-        `).join('')}
-      </tbody></table>
-    `}
-  `;
-  return section;
-}
-
-function createRoleHealth(teammates) {
+function createRoleHealth(metricStates) {
   const groups = new Map();
-  for (const teammate of teammates) {
-    const current = groups.get(teammate.role) ?? [];
-    current.push(...teammate.metricStates);
-    groups.set(teammate.role, current);
+  for (const entry of metricStates) {
+    const current = groups.get(entry.metric.category) ?? [];
+    current.push(entry);
+    groups.set(entry.metric.category, current);
   }
-  return [...groups.entries()].map(([role, states]) => ({ role, health: getDashboardTotals(states).health }));
+  return CATEGORIES
+    .filter((category) => groups.has(category.id))
+    .map((category) => ({ role: `${category.label} диаграммы`, health: getDashboardTotals(groups.get(category.id)).health }));
 }
 
 function getDashboardStatusLabel(status) {
