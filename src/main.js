@@ -1,6 +1,6 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.6';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.6';
-import { APP_VERSION } from './version.js?v=0.1.6';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.9';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.9';
+import { APP_VERSION } from './version.js?v=0.1.9';
 import {
   buildCsv,
   buildDataRows,
@@ -20,7 +20,8 @@ import {
   saveReports,
   todayISO,
   upsertReport,
-} from './storage.js?v=0.1.6';
+  reconcileSubmittedMetricsWithSheetReports,
+} from './storage.js?v=0.1.9';
 
 const state = {
   localReports: loadReports(),
@@ -559,7 +560,9 @@ async function saveReport() {
 
   try {
     const result = await submitDataRows(dataRows);
-    persist(markReportMetricsSubmitted(state.report, pendingMetrics));
+    const submittedReport = markReportMetricsSubmitted(state.report, pendingMetrics);
+    state.sheetReports = upsertReport(state.sheetReports, submittedReport);
+    persist(submittedReport);
     const remoteNote = result.skipped ? '' : ' Данные отправлены на лист «Данные».';
     const leftCount = metrics.length - getCompletion(state.report, metrics).done;
     const laterNote = leftCount > 0 ? ` Осталось ${leftCount}; их можно дозаполнить позже.` : '';
@@ -703,7 +706,10 @@ async function hydrateCatalog() {
   try {
     state.catalog = await loadCatalog();
     state.sheetReports = buildReportsFromDataRows(state.catalog.dataRows, state.catalog.checklist);
-    state.reports = mergeReports(state.sheetReports, state.localReports);
+    state.reports = reconcileSubmittedMetricsWithSheetReports(
+      mergeReports(state.localReports, state.sheetReports),
+      state.sheetReports,
+    );
     const defaultOwner = getDefaultOwner();
     const selectedOwner = hasCatalogOwner(state.report?.owner) ? state.report.owner : defaultOwner;
     state.report = createEditableReport(state.date, selectedOwner);
