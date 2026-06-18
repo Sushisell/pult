@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { loadCatalog, submitDataRows } from '../src/data-source.js';
-import { areAllMetricsSubmitted, buildCsv, buildDataRows, buildReportsFromDataRows, createEmptyReport, getCompletion, getDueMetricsForDate, getPendingFilledMetrics, getReportForDate, isMetricSubmitted, isReportSubmittedForCategory, makeReportKey, markReportMetricsSubmitted, markReportSubmittedForCategory, reconcileSubmittedMetricsWithSheetReports, upsertReport } from '../src/storage.js';
+import { areAllMetricsSubmitted, buildCsv, buildDataRows, buildReportsFromDataRows, createEmptyReport, getCompletion, getDueMetricsForDate, getPendingFilledMetrics, getReportForDate, isMetricSubmitted, isReportSubmittedForCategory, makeReportKey, markReportMetricsSubmitted, markReportSubmittedForCategory, mergeReportFilledRows, reconcileSubmittedMetricsWithSheetReports, upsertReport } from '../src/storage.js';
 import { CHECKLIST, createCatalog, createChecklist, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from '../src/checklist.js';
 import { APP_VERSION } from '../src/version.js';
 
@@ -274,6 +274,27 @@ describe('daily report storage helpers', () => {
     assert.equal(isReportSubmittedForCategory(submitted, 'daily'), true);
   });
 
+
+
+  it('merges a newly submitted metric without losing earlier submitted sheet metrics', () => {
+    const firstReport = createEmptyReport('2026-06-01', TEST_CHECKLIST, 'Тестовый Сотрудник HR');
+    const secondReport = createEmptyReport('2026-06-01', TEST_CHECKLIST, 'Тестовый Сотрудник HR');
+    firstReport.rows.find((row) => row.id === TEST_CHECKLIST[0].id).status = 'done';
+    secondReport.rows.find((row) => row.id === TEST_CHECKLIST[1].id).comment = 'Дозаполнили позже';
+
+    const submittedFirst = markReportMetricsSubmitted(firstReport, [TEST_CHECKLIST[0]]);
+    const submittedSecond = markReportMetricsSubmitted(secondReport, [TEST_CHECKLIST[1]]);
+    const merged = mergeReportFilledRows(submittedFirst, submittedSecond);
+
+    assert.equal(isMetricSubmitted(merged, TEST_CHECKLIST[0].id), true);
+    assert.equal(isMetricSubmitted(merged, TEST_CHECKLIST[1].id), true);
+    assert.equal(merged.rows.find((row) => row.id === TEST_CHECKLIST[0].id).status, 'done');
+    assert.equal(merged.rows.find((row) => row.id === TEST_CHECKLIST[1].id).comment, 'Дозаполнили позже');
+    assert.deepEqual(
+      getDueMetricsForDate(upsertReport({}, merged), '2026-06-01', 'Тестовый Сотрудник HR', TEST_CHECKLIST, { hideSubmittedForDate: true }).map((metric) => metric.id),
+      [TEST_CHECKLIST[2].id],
+    );
+  });
 
   it('submits only filled metrics and lets the rest be completed later', () => {
     const report = createEmptyReport('2026-06-01', TEST_CHECKLIST, 'Тестовый Сотрудник HR');
