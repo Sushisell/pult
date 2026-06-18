@@ -16,10 +16,12 @@ import {
   isMetricSubmitted,
   loadReports,
   markReportMetricsSubmitted,
+  mergeReportFilledRows,
   mergeReports,
   saveReports,
   todayISO,
   upsertReport,
+  makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
 } from './storage.js?v=0.1.9';
 
@@ -73,7 +75,7 @@ function appendOwnerOption(owner) {
 function persist(nextReport, { shouldRender = true } = {}) {
   state.report = nextReport;
   state.localReports = upsertReport(state.localReports, nextReport);
-  state.reports = upsertReport(state.reports, nextReport);
+  state.reports = upsertReport(state.reports, mergeReportFilledRows(state.reports[makeReportKey(nextReport.date, nextReport.owner)], nextReport));
   saveReports(state.localReports);
   if (shouldRender) render();
 }
@@ -561,8 +563,12 @@ async function saveReport() {
   try {
     const result = await submitDataRows(dataRows);
     const submittedReport = markReportMetricsSubmitted(state.report, pendingMetrics);
-    state.sheetReports = upsertReport(state.sheetReports, submittedReport);
-    persist(submittedReport);
+    const mergedSubmittedReport = mergeReportFilledRows(
+      state.sheetReports[makeReportKey(submittedReport.date, submittedReport.owner)],
+      submittedReport,
+    );
+    state.sheetReports = upsertReport(state.sheetReports, mergedSubmittedReport);
+    persist(mergedSubmittedReport);
     const remoteNote = result.skipped ? '' : ' Данные отправлены на лист «Данные».';
     const leftCount = metrics.length - getCompletion(state.report, metrics).done;
     const laterNote = leftCount > 0 ? ` Осталось ${leftCount}; их можно дозаполнить позже.` : '';

@@ -56,6 +56,35 @@ export function upsertReport(reports, report) {
   };
 }
 
+
+export function mergeReportFilledRows(baseReport, incomingReport) {
+  if (!baseReport) return incomingReport;
+  if (!incomingReport) return baseReport;
+
+  const incomingRowsById = new Map(incomingReport.rows.map((row) => [row.id, row]));
+  const baseRowsById = new Map(baseReport.rows.map((row) => [row.id, row]));
+  const rowIds = new Set([...baseRowsById.keys(), ...incomingRowsById.keys()]);
+  const rows = Array.from(rowIds).map((id) => {
+    const incomingRow = incomingRowsById.get(id);
+    const baseRow = baseRowsById.get(id);
+    return incomingRow && isRowFilled(incomingRow) ? incomingRow : baseRow ?? incomingRow;
+  });
+
+  return {
+    ...baseReport,
+    ...incomingReport,
+    rows,
+    submittedCategories: {
+      ...(baseReport.submittedCategories ?? {}),
+      ...(incomingReport.submittedCategories ?? {}),
+    },
+    submittedMetricIds: {
+      ...(baseReport.submittedMetricIds ?? {}),
+      ...(incomingReport.submittedMetricIds ?? {}),
+    },
+  };
+}
+
 export function mergeReports(baseReports = {}, incomingReports = {}) {
   return Object.values(incomingReports).reduce((reports, report) => {
     const key = makeReportKey(report.date, report.owner);
