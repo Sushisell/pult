@@ -165,7 +165,9 @@ function normalizeStoredRow(row) {
 }
 
 function normalizeSubmittedMetricIds(report, checklist) {
-  const submittedMetricIds = { ...(report.submittedMetricIds ?? {}) };
+  if (report.submittedMetricIds) return { ...report.submittedMetricIds };
+
+  const submittedMetricIds = {};
 
   for (const metric of checklist) {
     const row = report.rows.find((entry) => entry.id === metric.id);

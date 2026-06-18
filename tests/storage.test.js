@@ -281,6 +281,26 @@ describe('daily report storage helpers', () => {
     assert.deepEqual(nextPendingMetrics.map((metric) => metric.id), [TEST_CHECKLIST[1].id]);
   });
 
+  it('does not mark a newly filled metric as submitted just because its category was submitted before', () => {
+    const report = createEmptyReport('2026-06-01', TEST_CHECKLIST, 'Тестовый Сотрудник HR');
+    report.rows.find((row) => row.id === TEST_CHECKLIST[0].id).status = 'done';
+    const firstPendingMetrics = getPendingFilledMetrics(report, TEST_CHECKLIST);
+    const afterFirstSubmit = markReportMetricsSubmitted(report, firstPendingMetrics);
+    const withLegacyCategoryFlag = markReportSubmittedForCategory(afterFirstSubmit, 'weekly');
+
+    withLegacyCategoryFlag.rows.find((row) => row.id === TEST_CHECKLIST[1].id).status = 'fixed';
+    const normalized = getReportForDate(
+      upsertReport({}, withLegacyCategoryFlag),
+      '2026-06-01',
+      TEST_CHECKLIST,
+      'Тестовый Сотрудник HR',
+    );
+
+    assert.equal(isMetricSubmitted(normalized, TEST_CHECKLIST[0].id), true);
+    assert.equal(isMetricSubmitted(normalized, TEST_CHECKLIST[1].id), false);
+    assert.deepEqual(getPendingFilledMetrics(normalized, TEST_CHECKLIST).map((metric) => metric.id), [TEST_CHECKLIST[1].id]);
+  });
+
   it('keeps catalog empty when the table cannot be loaded', async () => {
     const catalog = await loadCatalog({
       dataUrl: '/missing-workbook.json',
