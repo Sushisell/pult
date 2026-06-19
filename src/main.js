@@ -55,6 +55,7 @@ const elements = {
   activeCategoryCount: document.querySelector('#active-category-count'),
   summaryList: document.querySelector('#summary-list'),
   heroScore: document.querySelector('#hero-score'),
+  heroScorePreview: document.querySelector('#hero-score-preview'),
   doneCount: document.querySelector('#done-count'),
   issueCount: document.querySelector('#issue-count'),
   skippedCount: document.querySelector('#skipped-count'),
@@ -132,6 +133,7 @@ function render() {
     <strong>${completion.percent}%</strong>
     <span>${completion.done} из ${completion.total} проверено</span>
   `;
+  if (elements.heroScorePreview) elements.heroScorePreview.textContent = `${completion.percent}%`;
   elements.doneCount.textContent = completion.done;
   elements.issueCount.textContent = completion.issues;
   elements.skippedCount.textContent = completion.skipped;

@@ -22,12 +22,35 @@
         <span class="brand-mark" aria-hidden="true"></span>
         <span>Пульт управления Сушиселл</span>
       </a>
+      <nav class="header-nav" aria-label="Разделы пульта">
+        <a href="#ident-title">Отчёт</a>
+        <a href="#active-category-title">Проверки</a>
+      </nav>
       <span class="app-version" id="app-version" aria-label="Версия приложения">v0.1.10</span>
     </header>
 
     <main class="app-shell" id="pult-main">
+      <section class="hero-panel" aria-labelledby="hero-title">
+        <div class="hero-content">
+          <span class="hero-kicker">Операционный контроль</span>
+          <h1 id="hero-title">Ежедневные проверки без хаоса в таблицах</h1>
+          <p>Выберите дату и сотрудника — пульт покажет только актуальные метрики, сохранит прогресс и подготовит данные для руководителя.</p>
+        </div>
+        <div class="hero-score-card" aria-hidden="true">
+          <span>Готовность смены</span>
+          <strong id="hero-score-preview">0%</strong>
+          <small>Заполните чек-лист, чтобы увидеть прогресс</small>
+        </div>
+      </section>
+
       <section class="panel ident-panel" aria-labelledby="ident-title">
-        <h1 id="ident-title">Идентификация</h1>
+        <div class="section-heading">
+          <span class="section-step">01</span>
+          <div>
+            <p class="section-kicker">Идентификация</p>
+            <h2 id="ident-title">Кто и за какой день сдаёт отчёт</h2>
+          </div>
+        </div>
         <div class="toolbar" aria-label="Настройки отчёта">
           <label>
             Выбрать дату
@@ -43,8 +66,14 @@
 
       <section class="panel checks-panel" aria-labelledby="active-category-title">
         <div class="panel-header">
-          <h2 id="active-category-title">Ежедневные проверки</h2>
-          <span class="visually-hidden" id="active-category-count">0 из 0 проверено</span>
+          <div class="section-heading">
+            <span class="section-step">02</span>
+            <div>
+              <p class="section-kicker">Чек-лист</p>
+              <h2 id="active-category-title">Ежедневные проверки</h2>
+            </div>
+          </div>
+          <span class="check-count-pill" id="active-category-count">0 из 0 проверено</span>
         </div>
         <div class="frequency-filters" id="category-tabs" aria-label="Фильтр периодичности"></div>
         <div class="checklist-list" id="checklist-body"></div>
