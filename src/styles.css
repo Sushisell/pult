@@ -216,7 +216,12 @@ h2 {
 .toolbar {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  align-items: start;
   gap: 20px;
+}
+
+.toolbar label {
+  align-content: start;
 }
 
 label {
@@ -1336,7 +1341,7 @@ body::before {
   position: relative;
   overflow: hidden;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 310px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 24px;
   align-items: stretch;
   border: 1px solid rgb(255 255 255 / 65%);
@@ -1347,7 +1352,7 @@ body::before {
 }
 
 .hero-panel::after { content: ""; position: absolute; right: -80px; top: -90px; width: 270px; height: 270px; border-radius: 50%; background: linear-gradient(135deg, rgb(239 71 111 / 20%), rgb(255 138 0 / 20%)); }
-.hero-content { position: relative; z-index: 1; max-width: 760px; }
+.hero-content { position: relative; z-index: 1; max-width: 980px; }
 .hero-kicker, .section-kicker { margin: 0 0 8px; color: var(--accent); font-size: .76rem; font-weight: 950; letter-spacing: .08em; text-transform: uppercase; }
 .hero-panel h1 { margin: 0 0 16px; max-width: 780px; color: var(--ink); font-size: clamp(2.15rem, 6vw, 4.9rem); line-height: .95; letter-spacing: -.07em; }
 .hero-panel p { max-width: 680px; margin: 0; color: var(--muted); font-size: clamp(1rem, 2vw, 1.2rem); line-height: 1.6; }
