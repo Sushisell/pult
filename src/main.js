@@ -1,6 +1,6 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.9';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.9';
-import { APP_VERSION } from './version.js?v=0.1.9';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.10';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.10';
+import { APP_VERSION } from './version.js?v=0.1.10';
 import {
   buildCsv,
   buildDataRows,
@@ -23,7 +23,7 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.9';
+} from './storage.js?v=0.1.10';
 
 const state = {
   localReports: loadReports(),
@@ -33,6 +33,7 @@ const state = {
   frequencyFilter: 'all',
   dashboardFrequencyFilters: new Set(CATEGORIES.map((category) => category.id)),
   report: null,
+  hasSelectedIdentity: false,
   catalog: {
     infoRows: INFO_ROWS,
     checklist: CHECKLIST,
@@ -61,7 +62,7 @@ const elements = {
 };
 
 state.reports = { ...state.localReports };
-state.report = createEditableReport(state.date, getDefaultOwner());
+state.report = createEditableReport(state.date, '');
 elements.dateInput.value = state.date;
 if (elements.appVersion) elements.appVersion.textContent = `v${APP_VERSION}`;
 
@@ -123,6 +124,8 @@ function render() {
   const context = getOwnerContext();
   const completion = getCompletion(state.report, context.metrics);
   elements.ownerInput.value = hasCatalogOwner(state.report.owner) ? state.report.owner : '';
+  elements.checklistBody.hidden = !state.hasSelectedIdentity;
+  elements.tabs.hidden = !state.hasSelectedIdentity;
   elements.heroScore.setAttribute('aria-label', `Выполнено ${completion.percent}%`);
   elements.heroScore.innerHTML = `
     <span class="score-icon">✓</span>
@@ -166,6 +169,16 @@ function renderTabs() {
 
 function renderChecklist({ employee, groups }) {
   elements.checklistBody.innerHTML = '';
+
+  if (!state.hasSelectedIdentity) {
+    elements.activeCategoryTitle.textContent = 'Сначала выберите дату и ФИО';
+    elements.activeCategoryCount.textContent = '0 из 0 проверено';
+    const empty = document.createElement('p');
+    empty.className = 'empty';
+    empty.textContent = 'Метрики появятся после выбора даты отчёта и сотрудника.';
+    elements.checklistBody.append(empty);
+    return;
+  }
 
   if (!employee) {
     elements.activeCategoryTitle.textContent = 'Метрики не найдены';
@@ -873,7 +886,7 @@ function setReportDate(nextDate) {
   elements.dateError.hidden = true;
   elements.dateInput.setCustomValidity('');
   state.date = nextDate;
-  const selectedOwner = hasCatalogOwner(state.report.owner) ? state.report.owner : getDefaultOwner();
+  const selectedOwner = state.hasSelectedIdentity && hasCatalogOwner(state.report.owner) ? state.report.owner : '';
   state.report = createEditableReport(state.date, selectedOwner);
   render();
   return true;
@@ -989,7 +1002,7 @@ function updateSaveButtons() {
 function updateSaveButton(button) {
   if (!button) return;
   const { employee, roleMetrics: metrics } = getOwnerContext();
-  const hasMetrics = Boolean(employee) && metrics.length > 0;
+  const hasMetrics = state.hasSelectedIdentity && Boolean(employee) && metrics.length > 0;
   const pendingMetrics = getPendingFilledMetrics(state.report, metrics);
   const submitted = areAllMetricsSubmitted(state.report, metrics);
   button.disabled = !hasMetrics || pendingMetrics.length === 0;
@@ -1008,6 +1021,7 @@ function updateSubmittedFeedback() {
 }
 
 elements.ownerInput.addEventListener('change', (event) => {
+  state.hasSelectedIdentity = Boolean(event.target.value);
   state.report = createEditableReport(state.date, event.target.value);
   render();
 });
@@ -1041,6 +1055,13 @@ function refreshOwnerOptions() {
     return;
   }
 
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Выберите ФИО';
+  placeholder.disabled = true;
+  placeholder.selected = !state.report?.owner;
+  elements.ownerInput.append(placeholder);
+
   for (const employee of state.catalog.infoRows) appendOwnerOption(employee.fullName);
 }
 
@@ -1056,10 +1077,8 @@ async function hydrateCatalog() {
       mergeReports(state.localReports, state.sheetReports),
       state.sheetReports,
     );
-    const defaultOwner = getDefaultOwner();
-    const selectedOwner = hasCatalogOwner(state.report?.owner) ? state.report.owner : defaultOwner;
+    const selectedOwner = state.hasSelectedIdentity && hasCatalogOwner(state.report?.owner) ? state.report.owner : '';
     state.report = createEditableReport(state.date, selectedOwner);
-    if (!state.report.owner && defaultOwner) state.report.owner = defaultOwner;
     refreshOwnerOptions();
     render();
   } finally {

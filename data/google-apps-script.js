@@ -12,6 +12,7 @@
 const CONFIG = {
   infoSheetName: 'Инфо',
   dataSheetName: 'Данные',
+  metricSheetNames: ['HR', 'ОКС', 'Франшиза', 'Финансы', 'Операционный', 'Производство', 'Маркетинг'],
   headerRows: 1,
   info: {
     // На листе «Инфо»: A = ФИО, B = роль сотрудника, C = роль руководителя.
@@ -60,8 +61,9 @@ function buildWorkbookJson_() {
     spreadsheetName: spreadsheet.getName(),
     infoRows: infoSheet ? readInfoRows_(infoSheet) : [],
     dataRows: dataSheet ? readDataRows_(dataSheet) : [],
-    metricSheets: spreadsheet.getSheets()
-      .filter((sheet) => ![CONFIG.infoSheetName, CONFIG.dataSheetName].includes(sheet.getName()))
+    metricSheets: CONFIG.metricSheetNames
+      .map((sheetName) => spreadsheet.getSheetByName(sheetName))
+      .filter(Boolean)
       .map(readMetricSheet_)
       .filter((sheet) => sheet.rows.length > 0),
   };
