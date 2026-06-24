@@ -1409,3 +1409,66 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
   .panel-header { display: grid; }
   .check-count-pill { justify-self: start; }
 }
+
+.view-tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.view-tab {
+  border: 1px solid rgb(223 226 234 / 90%);
+  border-radius: 999px;
+  padding: 12px 18px;
+  color: #444755;
+  background: rgb(255 255 255 / 82%);
+  font-size: 0.86rem;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgb(23 24 39 / 6%);
+  transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+}
+
+.view-tab:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgb(23 24 39 / 10%);
+}
+
+.view-tab[aria-selected="true"] {
+  border-color: var(--accent);
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--accent), #ff6a3d);
+  box-shadow: 0 16px 30px rgb(239 71 111 / 22%);
+}
+
+.view-tab:disabled {
+  cursor: not-allowed;
+  opacity: 0.54;
+  box-shadow: none;
+}
+
+.metric-details {
+  overflow-wrap: anywhere;
+}
+
+.metric-divider {
+  color: #252737;
+  font-weight: 800;
+  white-space: pre;
+}
+
+#report-view[hidden],
+#dashboard-view[hidden] {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .view-tabs {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .view-tab {
+    width: 100%;
+  }
+}

@@ -32,6 +32,7 @@ const state = {
   date: todayISO(),
   frequencyFilter: 'all',
   dashboardFrequencyFilters: new Set(CATEGORIES.map((category) => category.id)),
+  activeView: 'report',
   report: null,
   department: '',
   hasSelectedIdentity: false,
@@ -62,6 +63,9 @@ const elements = {
   issueCount: document.querySelector('#issue-count'),
   skippedCount: document.querySelector('#skipped-count'),
   managerDashboard: document.querySelector('#manager-dashboard'),
+  reportView: document.querySelector('#report-view'),
+  dashboardView: document.querySelector('#dashboard-view'),
+  viewTabs: document.querySelector('#view-tabs'),
 };
 
 state.reports = { ...state.localReports };
@@ -145,8 +149,45 @@ function render() {
   renderTabs();
   renderChecklist(context);
   renderSummary();
-  renderManagerDashboard(context.employee);
+  renderViews(context.employee);
 }
+
+function renderViews(employee) {
+  const hasDashboard = Boolean(employee) && getManagedEmployees(employee).length > 0;
+  if (state.activeView === 'dashboard' && !hasDashboard) state.activeView = 'report';
+
+  if (elements.reportView) elements.reportView.hidden = state.activeView !== 'report';
+  if (elements.dashboardView) elements.dashboardView.hidden = state.activeView !== 'dashboard' || !hasDashboard;
+  renderViewTabs(hasDashboard);
+  renderManagerDashboard(employee, { isAvailable: hasDashboard });
+}
+
+function renderViewTabs(hasDashboard) {
+  if (!elements.viewTabs) return;
+  elements.viewTabs.innerHTML = '';
+  const tabs = [
+    { id: 'report', label: 'Отчёт по метрикам', disabled: false },
+    { id: 'dashboard', label: 'Дашборды руководителя', disabled: !hasDashboard },
+  ];
+
+  for (const tab of tabs) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'view-tab';
+    button.textContent = tab.label;
+    button.disabled = tab.disabled;
+    button.setAttribute('aria-selected', String(state.activeView === tab.id));
+    button.setAttribute('aria-controls', tab.id === 'report' ? 'report-view' : 'dashboard-view');
+    if (tab.disabled) button.title = 'Дашборды появятся, если у выбранного сотрудника есть команда или метрики подчинённых.';
+    button.addEventListener('click', () => {
+      if (tab.disabled) return;
+      state.activeView = tab.id;
+      render();
+    });
+    elements.viewTabs.append(button);
+  }
+}
+
 
 function renderTabs() {
   elements.tabs.innerHTML = '';
@@ -244,24 +285,18 @@ function createMetricCell(item, row) {
   title.textContent = item.metric;
   wrapper.append(title);
 
-  if (item.description) {
-    const description = document.createElement('span');
-    description.className = 'metric-format metric-description';
-    appendTextWithLinks(description, `Описание: ${item.description}`);
-    if (item.goal) {
+  if (item.description || item.goal) {
+    const details = document.createElement('span');
+    details.className = 'metric-format metric-details';
+    if (item.description) appendTextWithLinks(details, `Описание: ${item.description}`);
+    if (item.description && item.goal) {
       const divider = document.createElement('span');
       divider.className = 'metric-divider';
-      divider.setAttribute('aria-hidden', 'true');
-      description.append(divider);
+      divider.textContent = ' — ';
+      details.append(divider);
     }
-    wrapper.append(description);
-  }
-
-  if (item.goal) {
-    const goal = document.createElement('span');
-    goal.className = 'metric-goal';
-    goal.textContent = `Цель: ${item.goal}`;
-    wrapper.append(goal);
+    if (item.goal) details.append(document.createTextNode(`Цель: ${item.goal}`));
+    wrapper.append(details);
   }
 
   const meta = createMetricMeta(item, row);
@@ -383,11 +418,11 @@ function renderSummary() {
 }
 
 
-function renderManagerDashboard(employee) {
+function renderManagerDashboard(employee, { isAvailable = false } = {}) {
   if (!elements.managerDashboard) return;
   elements.managerDashboard.innerHTML = '';
 
-  if (!employee) {
+  if (!employee || !isAvailable) {
     elements.managerDashboard.hidden = true;
     return;
   }
