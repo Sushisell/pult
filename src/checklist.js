@@ -76,6 +76,7 @@ function splitRoleAliases(role) {
 function normalizeInfoRows(infoRows) {
   const rows = infoRows
     .map((row) => ({
+      department: String(row.department ?? row['Отдел'] ?? '').trim(),
       fullName: String(row.fullName ?? row.name ?? row['ФИО'] ?? '').trim(),
       role: String(row.role ?? row['Роль'] ?? '').trim(),
       managerRole: String(row.managerRole ?? row.manager ?? row['Роль руководителя'] ?? '').trim(),
@@ -89,7 +90,7 @@ function mergeInfoRowsByFullName(rows) {
   const rowsByName = new Map();
 
   for (const row of rows) {
-    const key = normalizeText(row.fullName);
+    const key = `${normalizeText(row.department)}||${normalizeText(row.fullName)}`;
     const current = rowsByName.get(key);
 
     if (!current) {

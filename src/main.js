@@ -33,6 +33,7 @@ const state = {
   frequencyFilter: 'all',
   dashboardFrequencyFilters: new Set(CATEGORIES.map((category) => category.id)),
   report: null,
+  department: '',
   hasSelectedIdentity: false,
   catalog: {
     infoRows: INFO_ROWS,
@@ -44,6 +45,7 @@ const elements = {
   appVersion: document.querySelector('#app-version'),
   loadingScreen: document.querySelector('#loading-screen'),
   dateInput: document.querySelector('#date-input'),
+  departmentInput: document.querySelector('#department-input'),
   ownerInput: document.querySelector('#owner-input'),
   dateError: document.querySelector('#date-error'),
   saveReportButton: document.querySelector('#save-report-button'),
@@ -107,7 +109,7 @@ function exportCsv() {
 }
 
 function getOwnerContext() {
-  const employee = findEmployeeByFullName(state.report.owner, state.catalog.infoRows);
+  const employee = findSelectedEmployee();
   const roleMetrics = employee ? getMetricsForRole(employee.role, state.catalog.checklist) : [];
   const dueMetrics = employee ? getDueMetricsForDate(state.reports, state.date, employee.fullName, roleMetrics, { hideSubmittedForDate: true }) : [];
   const metrics = state.frequencyFilter === 'all'
@@ -124,7 +126,8 @@ function getOwnerContext() {
 function render() {
   const context = getOwnerContext();
   const completion = getCompletion(state.report, context.metrics);
-  elements.ownerInput.value = hasCatalogOwner(state.report.owner) ? state.report.owner : '';
+  elements.departmentInput.value = hasCatalogDepartment(state.department) ? state.department : '';
+  elements.ownerInput.value = hasCatalogOwner(state.report.owner, state.department) ? state.report.owner : '';
   elements.checklistBody.hidden = !state.hasSelectedIdentity;
   elements.tabs.hidden = !state.hasSelectedIdentity;
   elements.heroScore.setAttribute('aria-label', `Выполнено ${completion.percent}%`);
@@ -173,11 +176,11 @@ function renderChecklist({ employee, groups }) {
   elements.checklistBody.innerHTML = '';
 
   if (!state.hasSelectedIdentity) {
-    elements.activeCategoryTitle.textContent = 'Сначала выберите дату и ФИО';
+    elements.activeCategoryTitle.textContent = 'Сначала выберите отдел и ФИО';
     elements.activeCategoryCount.textContent = '0 из 0 проверено';
     const empty = document.createElement('p');
     empty.className = 'empty';
-    empty.textContent = 'Метрики появятся после выбора даты отчёта и сотрудника.';
+    empty.textContent = 'Метрики появятся после выбора даты отчёта, отдела и сотрудника.';
     elements.checklistBody.append(empty);
     return;
   }
@@ -888,7 +891,7 @@ function setReportDate(nextDate) {
   elements.dateError.hidden = true;
   elements.dateInput.setCustomValidity('');
   state.date = nextDate;
-  const selectedOwner = state.hasSelectedIdentity && hasCatalogOwner(state.report.owner) ? state.report.owner : '';
+  const selectedOwner = state.hasSelectedIdentity && hasCatalogOwner(state.report.owner, state.department) ? state.report.owner : '';
   state.report = createEditableReport(state.date, selectedOwner);
   render();
   return true;
@@ -1022,6 +1025,14 @@ function updateSubmittedFeedback() {
   }
 }
 
+elements.departmentInput.addEventListener('change', (event) => {
+  state.department = event.target.value;
+  state.hasSelectedIdentity = false;
+  state.report = createEditableReport(state.date, '');
+  refreshOwnerOptions();
+  render();
+});
+
 elements.ownerInput.addEventListener('change', (event) => {
   state.hasSelectedIdentity = Boolean(event.target.value);
   state.report = createEditableReport(state.date, event.target.value);
@@ -1040,8 +1051,32 @@ function createEditableReport(date, owner) {
   };
 }
 
-function getDefaultOwner() {
-  return state.catalog.infoRows[0]?.fullName ?? '';
+function refreshDepartmentOptions() {
+  elements.departmentInput.innerHTML = '';
+
+  if (state.catalog.infoRows.length === 0) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = 'Нет данных из таблицы';
+    option.disabled = true;
+    option.selected = true;
+    elements.departmentInput.append(option);
+    return;
+  }
+
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Выберите отдел';
+  placeholder.disabled = true;
+  placeholder.selected = !state.department;
+  elements.departmentInput.append(placeholder);
+
+  for (const department of getDepartments()) {
+    const option = document.createElement('option');
+    option.value = department;
+    option.textContent = department;
+    elements.departmentInput.append(option);
+  }
 }
 
 function refreshOwnerOptions() {
@@ -1053,22 +1088,46 @@ function refreshOwnerOptions() {
     option.textContent = 'Нет данных из таблицы';
     option.disabled = true;
     option.selected = true;
+    elements.ownerInput.disabled = true;
     elements.ownerInput.append(option);
     return;
   }
 
   const placeholder = document.createElement('option');
   placeholder.value = '';
-  placeholder.textContent = 'Выберите ФИО';
+  placeholder.textContent = state.department ? 'Выберите ФИО' : 'Сначала выберите отдел';
   placeholder.disabled = true;
   placeholder.selected = !state.report?.owner;
   elements.ownerInput.append(placeholder);
 
-  for (const employee of state.catalog.infoRows) appendOwnerOption(employee.fullName);
+  const employees = getEmployeesForDepartment(state.department);
+  elements.ownerInput.disabled = employees.length === 0;
+  for (const employee of employees) appendOwnerOption(employee.fullName);
 }
 
-function hasCatalogOwner(owner) {
-  return state.catalog.infoRows.some((employee) => employee.fullName === owner);
+function getDepartments() {
+  return [...new Set(state.catalog.infoRows.map((employee) => employee.department).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'ru'));
+}
+
+function getEmployeesForDepartment(department) {
+  if (!department) return [];
+  return state.catalog.infoRows
+    .filter((employee) => employee.department === department)
+    .sort((a, b) => a.fullName.localeCompare(b.fullName, 'ru'));
+}
+
+function findSelectedEmployee() {
+  const employee = state.catalog.infoRows.find((row) => row.department === state.department && row.fullName === state.report.owner);
+  return employee ?? findEmployeeByFullName(state.report.owner, state.catalog.infoRows);
+}
+
+function hasCatalogDepartment(department) {
+  return getDepartments().includes(department);
+}
+
+function hasCatalogOwner(owner, department = state.department) {
+  return getEmployeesForDepartment(department).some((employee) => employee.fullName === owner);
 }
 
 async function hydrateCatalog() {
@@ -1079,8 +1138,10 @@ async function hydrateCatalog() {
       mergeReports(state.localReports, state.sheetReports),
       state.sheetReports,
     );
-    const selectedOwner = state.hasSelectedIdentity && hasCatalogOwner(state.report?.owner) ? state.report.owner : '';
+    if (!hasCatalogDepartment(state.department)) state.department = '';
+    const selectedOwner = state.hasSelectedIdentity && hasCatalogOwner(state.report?.owner, state.department) ? state.report.owner : '';
     state.report = createEditableReport(state.date, selectedOwner);
+    refreshDepartmentOptions();
     refreshOwnerOptions();
     render();
   } finally {
