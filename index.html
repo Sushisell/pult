@@ -30,14 +30,6 @@
     </header>
 
     <main class="app-shell" id="pult-main">
-      <section class="hero-panel" aria-labelledby="hero-title">
-        <div class="hero-content">
-          <span class="hero-kicker">Операционный контроль</span>
-          <h1 id="hero-title">Ежедневные проверки без хаоса в таблицах</h1>
-          <p>Выберите дату и сотрудника — пульт покажет только актуальные метрики, сохранит прогресс и подготовит данные для руководителя.</p>
-        </div>
-      </section>
-
       <section class="panel ident-panel" aria-labelledby="ident-title">
         <div class="section-heading">
           <span class="section-step">01</span>
@@ -53,8 +45,12 @@
             <span class="field-error" id="date-error" role="alert" hidden></span>
           </label>
           <label>
+            Выбрать отдел
+            <select id="department-input"></select>
+          </label>
+          <label>
             Выбрать ФИО
-            <select id="owner-input"></select>
+            <select id="owner-input" disabled></select>
           </label>
         </div>
       </section>

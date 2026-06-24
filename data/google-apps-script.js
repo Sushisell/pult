@@ -15,10 +15,11 @@ const CONFIG = {
   metricSheetNames: ['HR', 'ОКС', 'Франшиза', 'Финансы', 'Операционный', 'Производство', 'Маркетинг'],
   headerRows: 1,
   info: {
-    // На листе «Инфо»: A = ФИО, B = роль сотрудника, C = роль руководителя.
-    fullNameColumn: 1,
-    roleColumn: 2,
-    managerRoleColumn: 3,
+    // На листе «Инфо»: A = отдел, B = ФИО, C = роль сотрудника, D = роль руководителя.
+    departmentColumn: 1,
+    fullNameColumn: 2,
+    roleColumn: 3,
+    managerRoleColumn: 4,
   },
   metrics: {
     // На всех листах с метриками: A = периодичность, B = название, C = описание, D = цель,
@@ -71,6 +72,7 @@ function buildWorkbookJson_() {
 
 function readInfoRows_(sheet) {
   return getDataRows_(sheet).map((row) => ({
+    department: getCell_(row, CONFIG.info.departmentColumn),
     fullName: getCell_(row, CONFIG.info.fullNameColumn),
     role: getCell_(row, CONFIG.info.roleColumn),
     managerRole: getCell_(row, CONFIG.info.managerRoleColumn),

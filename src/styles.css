@@ -215,13 +215,14 @@ h2 {
 
 .toolbar {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: start;
   gap: 20px;
 }
 
 .toolbar label {
   align-content: start;
+  min-width: 0;
 }
 
 label {
@@ -236,6 +237,7 @@ input,
 select,
 textarea {
   width: 100%;
+  min-width: 0;
   min-height: 34px;
   border: 1px solid #dfe2ea;
   border-radius: 4px;
@@ -243,6 +245,13 @@ textarea {
   color: #2e3242;
   background: #ffffff;
   outline: none;
+}
+
+input[type="date"] {
+  min-width: 0;
+  text-align: center;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 input:focus,
