@@ -24,7 +24,7 @@
       </a>
       <nav class="header-nav" aria-label="Разделы пульта">
         <a href="#ident-title">Отчёт</a>
-        <a href="#active-category-title">Проверки</a>
+        <a href="#manager-dashboard">Дашборды</a>
       </nav>
       <span class="app-version" id="app-version" aria-label="Версия приложения">v0.1.10</span>
     </header>
@@ -55,6 +55,9 @@
         </div>
       </section>
 
+      <div class="view-tabs" id="view-tabs" role="tablist" aria-label="Разделы отчёта и дашбордов"></div>
+
+      <div id="report-view">
       <section class="panel checks-panel" aria-labelledby="active-category-title">
         <div class="panel-header">
           <div class="section-heading">
@@ -74,7 +77,11 @@
         <p class="save-feedback" id="save-feedback" role="status" aria-live="polite"></p>
       </section>
 
-      <section class="panel manager-panel" id="manager-dashboard" aria-label="Дашборд руководителя" hidden></section>
+      </div>
+
+      <div id="dashboard-view" hidden>
+        <section class="panel manager-panel" id="manager-dashboard" aria-label="Дашборд руководителя" hidden></section>
+      </div>
 
       <button class="visually-hidden" id="export-button" type="button" aria-hidden="true" tabindex="-1">Скачать CSV</button>
       <div class="visually-hidden" id="summary-list" aria-hidden="true"></div>
