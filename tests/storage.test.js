@@ -203,6 +203,7 @@ describe('daily report storage helpers', () => {
     assert.equal(catalog.checklist[0].deadline, '18:00');
     assert.equal(catalog.checklist[0].managerRole, 'Директор');
     assert.equal(createCatalog({ metricSheets: [{ name: 'Типы', rows: [{ frequency: 'ежедневно', metric: 'Число', role: 'Операции', classification: 'Ввод числа' }] }] }).checklist[0].type, 'number');
+    assert.equal(createCatalog({ metricSheets: [{ name: 'Типы', rows: [{ frequency: 'ежедневно', metric: 'Конверсия', role: 'Операции', classification: 'Ввод процента' }] }] }).checklist[0].type, 'percent');
     assert.deepEqual(groupMetricsByFrequency(catalog.checklist).map((group) => group.id), ['daily', 'monthly']);
   });
 
