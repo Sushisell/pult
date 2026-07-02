@@ -150,6 +150,7 @@ function getDataRowKey_(date, owner, metric) {
 function getTypeByClassification_(classification) {
   const normalized = String(classification ?? '').trim().toLowerCase();
   if (normalized === 'ввод числа') return 'number';
+  if (normalized === 'ввод процента' || normalized === 'процент') return 'percent';
   return 'checkbox';
 }
 

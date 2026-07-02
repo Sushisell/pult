@@ -355,7 +355,7 @@ function getStatusLabel(status) {
 }
 
 function getStoredValue(row, metric) {
-  if (metric?.type === 'number') return String(row.value ?? '').trim();
+  if (metric?.type === 'number' || metric?.type === 'percent') return String(row.value ?? '').trim();
   if (String(row.value ?? '').trim()) return String(row.value ?? '').trim();
   return STATUS[row.status] ?? '';
 }

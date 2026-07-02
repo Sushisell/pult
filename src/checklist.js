@@ -176,6 +176,7 @@ function getMetricType(row) {
   const rawType = String(row.type ?? row['Тип'] ?? '').trim();
   const classification = normalizeText(row.classification ?? row['Классификация'] ?? row['Классификация метрики'] ?? rawType);
   if (classification === 'ввод числа' || classification === 'number') return 'number';
+  if (classification === 'ввод процента' || classification === 'процент' || classification === 'percent') return 'percent';
   if (classification === 'проверено' || classification === 'checkbox') return 'checkbox';
   return rawType || 'checkbox';
 }

@@ -270,7 +270,7 @@ function createChecklistCard(item, row) {
   if (row.status === 'done') card.classList.add('is-done');
   if (row.status === 'fixed') card.classList.add('is-fixed');
   if (row.status === 'issue') card.classList.add('is-issue');
-  if (item.type === 'number') card.classList.add('is-number');
+  if (isNumericMetric(item)) card.classList.add('is-number');
   if (isMetricLocked(item)) card.classList.add('is-locked');
   if (isMetricDeadlineExpired(item)) card.classList.add('is-deadline-expired');
 
@@ -285,17 +285,29 @@ function createMetricCell(item, row) {
   title.textContent = item.metric;
   wrapper.append(title);
 
+  if (isNumericMetric(item)) {
+    const hint = document.createElement('span');
+    hint.className = 'metric-input-hint';
+    hint.textContent = item.type === 'percent' ? 'Введите процент: например 35 или 35,5%' : 'Введите числовое значение';
+    wrapper.append(hint);
+  }
+
   if (item.description || item.goal) {
-    const details = document.createElement('span');
-    details.className = 'metric-format metric-details';
-    if (item.description) appendTextWithLinks(details, `Описание: ${item.description}`);
-    if (item.description && item.goal) {
-      const divider = document.createElement('span');
-      divider.className = 'metric-divider';
-      divider.textContent = ' — ';
-      details.append(divider);
+    const details = document.createElement('div');
+    details.className = 'metric-details';
+    if (item.description) {
+      const description = document.createElement('div');
+      description.className = 'metric-detail metric-detail-description';
+      description.append(createMetricDetailLabel('Описание'));
+      appendTextWithLinks(description, item.description);
+      details.append(description);
     }
-    if (item.goal) details.append(document.createTextNode(`Цель: ${item.goal}`));
+    if (item.goal) {
+      const goal = document.createElement('div');
+      goal.className = 'metric-detail metric-detail-goal';
+      goal.append(createMetricDetailLabel('Цель'), document.createTextNode(item.goal));
+      details.append(goal);
+    }
     wrapper.append(details);
   }
 
@@ -305,11 +317,23 @@ function createMetricCell(item, row) {
   return wrapper;
 }
 
+
+function createMetricDetailLabel(text) {
+  const label = document.createElement('span');
+  label.className = 'metric-detail-label';
+  label.textContent = `${text}:`;
+  return label;
+}
+
+function isNumericMetric(metric) {
+  return metric?.type === 'number' || metric?.type === 'percent';
+}
+
 function createMetricMeta(item, row) {
   const badges = [];
   if (item.deadline) {
     badges.push({
-      label: isMetricDeadlineExpired(item) ? `Срок истёк: ${item.deadline}` : `Срок: ${item.deadline}`,
+      label: getMetricDeadlineBadgeLabel(item),
       className: isMetricDeadlineExpired(item) ? 'metric-badge metric-badge-danger' : 'metric-badge',
     });
   }
@@ -331,17 +355,17 @@ function createControlCell(item, row) {
   const wrapper = document.createElement('div');
   wrapper.className = 'control-stack';
 
-  if (item.type === 'number') {
+  if (isNumericMetric(item)) {
     const inlineField = document.createElement('div');
     inlineField.className = 'inline-field';
     const input = document.createElement('input');
     input.type = 'number';
     input.value = row.value;
-    input.placeholder = item.placeholder ?? '0';
+    input.placeholder = item.placeholder ?? (item.type === 'percent' ? '0%' : '0');
     input.disabled = isMetricLocked(item);
     input.addEventListener('input', (event) => updateRow(item.id, { value: event.target.value }, { shouldRender: false }));
     const suffix = document.createElement('span');
-    suffix.textContent = item.suffix;
+    suffix.textContent = item.suffix ?? (item.type === 'percent' ? '%' : '');
     inlineField.append(input, suffix);
     wrapper.append(inlineField, createCommentField(item, row));
     return wrapper;
@@ -657,7 +681,9 @@ function createManagerFrequencySection(group) {
           ${rows.map((row) => `
             <tr>
               <th scope="row">${escapeHtml(row.metric.metric)}</th>
-              ${periods.map((period) => createManagerMatrixDotCell(row.byPeriod.get(period.id))).join('')}
+              ${isNumericMetric(row.metric)
+                ? createManagerMatrixChartCell(row, periods)
+                : periods.map((period) => createManagerMatrixDotCell(row.byPeriod.get(period.id))).join('')}
             </tr>
           `).join('')}
         </tbody>
@@ -722,6 +748,69 @@ function createManagerMatrixCellState(entries) {
   }
   const status = statusPriority.find((key) => counts[key] > 0) ?? 'empty';
   return { status, counts, entries };
+}
+
+
+function createManagerMatrixChartCell(row, periods) {
+  const points = periods.map((period) => getManagerNumericPoint(row.byPeriod.get(period.id), row.metric));
+  const values = points.map((point) => point.value).filter((value) => Number.isFinite(value));
+  const title = values.length > 0
+    ? `Динамика: ${points.map((point) => `${point.label}: ${point.display ?? 'нет данных'}`).join(' · ')}`
+    : 'Нет числовых данных для диаграммы';
+  return `<td class="manager-chart-cell" colspan="${periods.length}">${createManagerSparkline(points, row.metric, title)}</td>`;
+}
+
+function getManagerNumericPoint(cell, metric) {
+  const values = (cell?.entries ?? [])
+    .map((entry) => parseMetricNumber(entry.row?.value))
+    .filter((value) => Number.isFinite(value));
+  const value = values.length === 0 ? null : values.reduce((sum, item) => sum + item, 0) / values.length;
+  return {
+    value,
+    label: cell?.entries?.[0]?.period ? getManagerPeriodShortLabel(cell.entries[0].period) : '',
+    display: value === null ? null : formatMetricNumber(value, metric),
+  };
+}
+
+function createManagerSparkline(points, metric, title) {
+  const width = 360;
+  const height = 96;
+  const padding = 14;
+  const values = points.map((point) => point.value).filter((value) => Number.isFinite(value));
+  if (values.length === 0) return `<div class="manager-sparkline-empty">Нет данных</div>`;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const coords = points.map((point, index) => {
+    const x = points.length === 1 ? width / 2 : padding + ((width - padding * 2) * index) / (points.length - 1);
+    const y = Number.isFinite(point.value) ? height - padding - ((point.value - min) / range) * (height - padding * 2) : null;
+    return { ...point, x, y };
+  });
+  const line = coords.filter((point) => point.y !== null).map((point) => `${point.x},${point.y}`).join(' ');
+  return `
+    <div class="manager-sparkline" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">
+      <svg viewBox="0 0 ${width} ${height}" role="img" aria-hidden="true" focusable="false">
+        <line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" />
+        <polyline points="${line}" />
+        ${coords.filter((point) => point.y !== null).map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4"><title>${escapeHtml(point.display)}</title></circle>`).join('')}
+      </svg>
+      <div class="manager-sparkline-labels">
+        <span>${escapeHtml(formatMetricNumber(min, metric))}</span>
+        <span>${escapeHtml(formatMetricNumber(max, metric))}</span>
+      </div>
+    </div>`;
+}
+
+function parseMetricNumber(value) {
+  const normalized = String(value ?? '').replace('%', '').replace(',', '.').trim();
+  if (!normalized) return NaN;
+  return Number(normalized);
+}
+
+function formatMetricNumber(value, metric) {
+  const formatted = Number(value).toLocaleString('ru-RU', { maximumFractionDigits: 1 });
+  if (metric?.type === 'percent') return `${formatted}%`;
+  return `${formatted}${metric?.suffix ? ` ${metric.suffix}` : ''}`;
 }
 
 function createManagerMatrixDotCell(cell) {
@@ -834,8 +923,7 @@ function createManagerMetricList(metrics, report) {
 }
 
 function getManagerMetricDeadline(metric) {
-  const deadline = String(metric.deadline ?? '').trim();
-  return deadline ? `Срок сдачи: ${deadline}` : '';
+  return getMetricDeadlineDisplay(metric, { prefix: 'Срок сдачи: ' });
 }
 
 function getManagerMetricDetail(row, metric, filled) {
@@ -972,6 +1060,36 @@ async function saveReport() {
   }
 }
 
+
+function getMetricDeadlineBadgeLabel(item) {
+  const display = getMetricDeadlineDisplay(item, { prefix: '' }) || String(item.deadline ?? '').trim();
+  return isMetricDeadlineExpired(item) ? `Срок истёк: ${display}` : `Срок: ${display}`;
+}
+
+function getMetricDeadlineDisplay(item, { prefix = '' } = {}) {
+  const parsed = getMetricDeadlineDate(item.deadline, state.date);
+  if (!parsed) {
+    const fallback = String(item.deadline ?? '').trim();
+    return fallback ? `${prefix}${fallback}` : '';
+  }
+
+  const localTime = formatDeadlineInUserTimeZone(parsed);
+  return `${prefix}до ${localTime} по вашему времени`;
+}
+
+function formatDeadlineInUserTimeZone(date) {
+  try {
+    return new Intl.DateTimeFormat('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    }).format(date);
+  } catch (error) {
+    return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  }
+}
+
 function isMetricLocked(item) {
   return isMetricSubmitted(state.report, item.id);
 }
@@ -987,11 +1105,16 @@ function getMetricDeadlineDate(deadline, reportDate) {
   if (!value || !reportDate) return null;
 
   const timeMatch = value.match(/^(\d{1,2})(?::(\d{2}))?$/u);
-  if (timeMatch) return createKrasnoyarskDate(reportDate, Number(timeMatch[1]), Number(timeMatch[2] ?? 0));
+  if (timeMatch) return createDateWithUtcOffset(reportDate, Number(timeMatch[1]), Number(timeMatch[2] ?? 0), 3);
+
+  const moscowTimeMatch = value.match(/(?:^|\s|к\s*)(\d{1,2})(?::(\d{2}))?\s*(?:по\s*)?(?:мск|москв\w*)/u);
+  if (moscowTimeMatch) {
+    return createDateWithUtcOffset(reportDate, Number(moscowTimeMatch[1]), Number(moscowTimeMatch[2] ?? 0), 3);
+  }
 
   const krasnoyarskTimeMatch = value.match(/(?:^|\s|к\s*)(\d{1,2})(?::(\d{2}))?\s*(?:по\s*)?(?:крск|красноярск\w*)/u);
   if (krasnoyarskTimeMatch) {
-    return createKrasnoyarskDate(reportDate, Number(krasnoyarskTimeMatch[1]), Number(krasnoyarskTimeMatch[2] ?? 0));
+    return createDateWithUtcOffset(reportDate, Number(krasnoyarskTimeMatch[1]), Number(krasnoyarskTimeMatch[2] ?? 0), 7);
   }
 
   const weekdayIndex = getWeekdayIndex(value);
@@ -1000,7 +1123,7 @@ function getMetricDeadlineDate(deadline, reportDate) {
     const date = new Date(Date.UTC(year, month - 1, dayOfMonth));
     const day = date.getUTCDay() === 0 ? 7 : date.getUTCDay();
     date.setUTCDate(date.getUTCDate() + weekdayIndex - day);
-    return createKrasnoyarskDate(date.toISOString().slice(0, 10), 18, 0);
+    return createDateWithUtcOffset(date.toISOString().slice(0, 10), 18, 0, 3);
   }
 
   const monthDayMatch = value.match(/^(\d{1,2})(?:\s*(?:число|числа|го|ое|е))?$/u);
@@ -1008,17 +1131,17 @@ function getMetricDeadlineDate(deadline, reportDate) {
     const [, month] = reportDate.split('-');
     const year = reportDate.slice(0, 4);
     const day = String(Number(monthDayMatch[1])).padStart(2, '0');
-    return createKrasnoyarskDate(`${year}-${month}-${day}`, 18, 0);
+    return createDateWithUtcOffset(`${year}-${month}-${day}`, 18, 0, 3);
   }
 
   return null;
 }
 
-function createKrasnoyarskDate(date, hours, minutes) {
+function createDateWithUtcOffset(date, hours, minutes, utcOffsetHours) {
   if (hours > 23 || minutes > 59) return null;
   const [year, month, day] = date.split('-').map(Number);
   if (!year || !month || !day) return null;
-  return new Date(Date.UTC(year, month - 1, day, hours - 7, minutes));
+  return new Date(Date.UTC(year, month - 1, day, hours - utcOffsetHours, minutes));
 }
 
 function getWeekdayIndex(value) {
