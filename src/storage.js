@@ -280,6 +280,8 @@ export function getDueMetricsForDate(reports, date, owner, metrics = CHECKLIST, 
 }
 
 export function shouldShowMetricForDate(reports, date, owner, metric, { hideSubmittedForDate = false, hideFilledForDate = false } = {}) {
+  if (metric.category === 'monthly' && !isMonthlyMetricInFillingWindow(metric, date)) return false;
+
   const reportAlreadyHasMetric = (report) => (
     report.owner === owner
     && isMetricFilled(report, metric.id)
@@ -348,6 +350,27 @@ export function buildCsv(reports, catalog = getDefaultCatalog()) {
   return [header, ...rows]
     .map((row) => row.map(escapeCsvCell).join(','))
     .join('\n');
+}
+
+function isMonthlyMetricInFillingWindow(metric, date) {
+  const deadlineDay = getMonthlyDeadlineDay(metric.deadline);
+  if (!deadlineDay) return true;
+
+  const [year, month, day] = String(date).split('-').map(Number);
+  if (!year || !month || !day) return true;
+
+  const lastDayOfMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const normalizedDeadlineDay = Math.min(deadlineDay, lastDayOfMonth);
+  const firstVisibleDay = Math.max(1, normalizedDeadlineDay - 7);
+  return day >= firstVisibleDay;
+}
+
+function getMonthlyDeadlineDay(deadline) {
+  const normalized = normalizeText(deadline).replaceAll('ё', 'е');
+  const match = normalized.match(/^(\d{1,2})(?:\s*(?:число|числа|го|ое|е))?$/u);
+  if (!match) return null;
+  const day = Number(match[1]);
+  return day >= 1 && day <= 31 ? day : null;
 }
 
 function getStatusLabel(status) {

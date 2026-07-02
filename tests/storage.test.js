@@ -84,6 +84,25 @@ describe('daily report storage helpers', () => {
     assert.equal(dueNextMonth.some((metric) => metric.id === monthly.id), true);
   });
 
+  it('shows monthly metrics only during the week before their monthly deadline', () => {
+    const catalog = createCatalog({
+      infoRows: [{ fullName: 'Мария Ежемесячная', role: 'HR' }],
+      metricSheets: [{
+        name: 'HR',
+        rows: [{ frequency: 'ежемесячно', metric: 'Отчёт к 25 числу', role: 'HR', deadline: '25' }],
+      }],
+    });
+    const [monthly] = catalog.checklist;
+
+    const dueBeforeWindow = getDueMetricsForDate({}, '2026-06-17', 'Мария Ежемесячная', [monthly]);
+    const dueFromWindowStart = getDueMetricsForDate({}, '2026-06-18', 'Мария Ежемесячная', [monthly]);
+    const dueAfterDeadline = getDueMetricsForDate({}, '2026-06-26', 'Мария Ежемесячная', [monthly]);
+
+    assert.deepEqual(dueBeforeWindow, []);
+    assert.deepEqual(dueFromWindowStart.map((metric) => metric.id), [monthly.id]);
+    assert.deepEqual(dueAfterDeadline.map((metric) => metric.id), [monthly.id]);
+  });
+
   it('hides daily metrics already submitted for the selected date but keeps drafts visible', () => {
     const report = createEmptyReport('2026-06-01', TEST_CHECKLIST, 'Тестовый Сотрудник HR');
     const hrMetrics = getMetricsForRole('HR', TEST_CHECKLIST);

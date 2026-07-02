@@ -153,7 +153,7 @@ function render() {
 }
 
 function renderViews(employee) {
-  const hasDashboard = Boolean(employee) && getManagedEmployees(employee).length > 0;
+  const hasDashboard = Boolean(employee) && getDashboardEmployees(employee).length > 0;
   if (state.activeView === 'dashboard' && !hasDashboard) state.activeView = 'report';
 
   if (elements.reportView) elements.reportView.hidden = state.activeView !== 'report';
@@ -167,7 +167,7 @@ function renderViewTabs(hasDashboard) {
   elements.viewTabs.innerHTML = '';
   const tabs = [
     { id: 'report', label: 'Отчёт по метрикам', disabled: false },
-    { id: 'dashboard', label: 'Дашборды руководителя', disabled: !hasDashboard },
+    { id: 'dashboard', label: 'Дашборд метрик', disabled: !hasDashboard },
   ];
 
   for (const tab of tabs) {
@@ -178,7 +178,7 @@ function renderViewTabs(hasDashboard) {
     button.disabled = tab.disabled;
     button.setAttribute('aria-selected', String(state.activeView === tab.id));
     button.setAttribute('aria-controls', tab.id === 'report' ? 'report-view' : 'dashboard-view');
-    if (tab.disabled) button.title = 'Дашборды появятся, если у выбранного сотрудника есть команда или метрики подчинённых.';
+    if (tab.disabled) button.title = 'Дашборд появится, если у сотрудника есть свои метрики или метрики подчинённых.';
     button.addEventListener('click', () => {
       if (tab.disabled) return;
       state.activeView = tab.id;
@@ -451,7 +451,7 @@ function renderManagerDashboard(employee, { isAvailable = false } = {}) {
     return;
   }
 
-  const team = getManagedEmployees(employee);
+  const team = getDashboardEmployees(employee);
   if (team.length === 0) {
     elements.managerDashboard.hidden = true;
     return;
@@ -583,9 +583,9 @@ function createManagerHero(employee, dashboard) {
   hero.className = 'manager-hero';
   hero.innerHTML = `
     <div>
-      <p class="manager-eyebrow">Отображение метрик руководителю</p>
+      <p class="manager-eyebrow">Дашборд метрик</p>
       <h2>Контроль процессов: ${escapeHtml(employee.role)}</h2>
-      <span>Состояние команды на ${escapeHtml(formatRuDate(state.date))}</span>
+      <span>${getManagedEmployees(employee).length > 0 ? 'Состояние команды и личных метрик' : 'Состояние личных метрик'} на ${escapeHtml(formatRuDate(state.date))}</span>
     </div>
     <div class="manager-health-card">
       <span>Индекс здоровья процессов</span>
@@ -792,11 +792,10 @@ function createManagerSparkline(points, metric, title) {
       <svg viewBox="0 0 ${width} ${height}" role="img" aria-hidden="true" focusable="false">
         <line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" />
         <polyline points="${line}" />
-        ${coords.filter((point) => point.y !== null).map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4"><title>${escapeHtml(point.display)}</title></circle>`).join('')}
+        ${coords.filter((point) => point.y !== null).map((point) => `<g class="manager-sparkline-point"><circle cx="${point.x}" cy="${point.y}" r="4"><title>${escapeHtml(point.display)}</title></circle><text x="${point.x}" y="${Math.max(12, point.y - 10)}" text-anchor="middle">${escapeHtml(point.display)}</text></g>`).join('')}
       </svg>
       <div class="manager-sparkline-labels">
-        <span>${escapeHtml(formatMetricNumber(min, metric))}</span>
-        <span>${escapeHtml(formatMetricNumber(max, metric))}</span>
+        ${points.map((point) => `<span>${escapeHtml(point.label)}: ${escapeHtml(point.display ?? 'нет данных')}</span>`).join('')}
       </div>
     </div>`;
 }
@@ -943,6 +942,10 @@ function getManagerMetricDetail(row, metric, filled) {
 
   if (comment) parts.push(`Комментарий: ${comment}`);
   return parts.join(' · ');
+}
+
+function getDashboardEmployees(employee) {
+  return [employee, ...getManagedEmployees(employee)];
 }
 
 function getManagedEmployees(manager) {
