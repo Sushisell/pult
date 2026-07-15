@@ -1,4 +1,4 @@
-import { createCatalog } from './checklist.js?v=0.1.10';
+import { createCatalog } from './checklist.js?v=0.1.11';
 
 const DEFAULT_DATA_URL = './data/workbook.json';
 

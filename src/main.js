@@ -1,6 +1,6 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.10';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.10';
-import { APP_VERSION } from './version.js?v=0.1.10';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.11';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.11';
+import { APP_VERSION } from './version.js?v=0.1.11';
 import {
   buildCsv,
   buildDataRows,
@@ -23,7 +23,7 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.10';
+} from './storage.js?v=0.1.11';
 
 const state = {
   localReports: loadReports(),
@@ -1213,6 +1213,9 @@ function createEditableReport(date, owner) {
   const storedReport = getReportForDate(state.reports, date, state.catalog.checklist, owner);
   return {
     ...createEmptyReport(date, state.catalog.checklist, owner),
+    ...storedReport,
+    date,
+    owner,
     submittedCategories: storedReport.submittedCategories ?? {},
     submittedMetricIds: storedReport.submittedMetricIds ?? {},
   };
