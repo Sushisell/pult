@@ -363,7 +363,10 @@ function createControlCell(item, row) {
     input.value = row.value;
     input.placeholder = item.placeholder ?? (item.type === 'percent' ? '0%' : '0');
     input.disabled = isMetricLocked(item);
-    input.addEventListener('input', (event) => updateRow(item.id, { value: event.target.value }, { shouldRender: false }));
+    input.addEventListener('input', (event) => {
+      updateRow(item.id, { value: event.target.value }, { shouldRender: false });
+      updateSaveButtons();
+    });
     const suffix = document.createElement('span');
     suffix.textContent = item.suffix ?? (item.type === 'percent' ? '%' : '');
     inlineField.append(input, suffix);
@@ -407,7 +410,10 @@ function createCommentField(item, row) {
   textarea.placeholder = item.placeholder ?? 'Комментарий к метрике';
   textarea.value = row.comment;
   textarea.disabled = isMetricLocked(item);
-  textarea.addEventListener('input', (event) => updateRow(item.id, { comment: event.target.value }, { shouldRender: false }));
+  textarea.addEventListener('input', (event) => {
+    updateRow(item.id, { comment: event.target.value }, { shouldRender: false });
+    updateSaveButtons();
+  });
   return textarea;
 }
 
