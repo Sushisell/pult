@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { loadCatalog, submitDataRows } from '../src/data-source.js';
 import { areAllMetricsSubmitted, buildCsv, buildDataRows, buildReportsFromDataRows, createEmptyReport, getCompletion, getDueMetricsForDate, getPendingFilledMetrics, getReportForDate, isMetricSubmitted, isReportSubmittedForCategory, makeReportKey, markReportMetricsSubmitted, markReportSubmittedForCategory, mergeReportFilledRows, reconcileSubmittedMetricsWithSheetReports, upsertReport } from '../src/storage.js';
-import { CHECKLIST, createCatalog, createChecklist, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from '../src/checklist.js';
+import { CHECKLIST, createCatalog, createChecklist, findEmployeeByFullName, getEmployeesWithSharedRole, getMetricsForRole, groupMetricsByFrequency } from '../src/checklist.js';
 import { APP_VERSION } from '../src/version.js';
 
 
@@ -120,6 +120,21 @@ describe('daily report storage helpers', () => {
     assert.equal(dueSubmitted.some((metric) => metric.id === daily.id), false);
     assert.equal(dueSubmittedForDashboard.some((metric) => metric.id === daily.id), true);
     assert.equal(dueNextDay.some((metric) => metric.id === daily.id), true);
+  });
+
+  it('finds shared metric owners by role across departments', () => {
+    const catalog = createCatalog({
+      infoRows: [
+        { department: 'Первый отдел', fullName: 'Первый HR', role: 'HR' },
+        { department: 'Второй отдел', fullName: 'Второй HR', role: 'HR' },
+        { department: 'Маркетинг', fullName: 'Маркетолог', role: 'Маркетинг' },
+      ],
+    });
+
+    const employee = findEmployeeByFullName('Первый HR', catalog.infoRows);
+    const sharedOwners = getEmployeesWithSharedRole(employee, catalog.infoRows).map((row) => row.fullName);
+
+    assert.deepEqual(sharedOwners, ['Первый HR', 'Второй HR']);
   });
 
   it('hides metrics submitted by another employee with the same department role', () => {

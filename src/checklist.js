@@ -60,6 +60,17 @@ export function groupMetricsByFrequency(metrics) {
   })).filter((group) => group.items.length > 0);
 }
 
+export function employeesShareRole(firstEmployee, secondEmployee) {
+  const firstRoles = splitRoleAliases(firstEmployee?.role);
+  const secondRoles = splitRoleAliases(secondEmployee?.role);
+  return firstRoles.length > 0 && secondRoles.some((role) => firstRoles.includes(role));
+}
+
+export function getEmployeesWithSharedRole(employee, infoRows = INFO_ROWS) {
+  if (!employee) return [];
+  return infoRows.filter((teammate) => employeesShareRole(employee, teammate));
+}
+
 
 function roleMatches(employeeRoles, metricRole) {
   const metricRoles = splitRoleAliases(metricRole);
