@@ -15,6 +15,8 @@ export function createEmptyRow(item) {
     id: item.id,
     status: '',
     value: '',
+    plan: '',
+    fact: '',
     comment: '',
     updatedAt: '',
   };
@@ -135,11 +137,13 @@ export function buildReportsFromDataRows(dataRows = [], checklist = CHECKLIST) {
       if (row.id !== metric.id) return row;
       const value = String(dataRow.value ?? '');
       const comment = String(dataRow.comment ?? '');
+      const planFact = metric.type === 'planFact' ? getPlanFactFromDataRow(dataRow) : { plan: '', fact: '' };
       return {
         ...row,
         value,
+        ...planFact,
         comment,
-        status: metric.type === 'number' ? row.status : getStatusFromStoredValue(value, row.status),
+        status: metric.type === 'number' || metric.type === 'percent' || metric.type === 'planFact' ? row.status : getStatusFromStoredValue(value, row.status),
       };
     });
 
@@ -169,6 +173,8 @@ export function buildDataRows(report, metrics = CHECKLIST) {
         owner: report.owner,
         metric: metric?.metric ?? row.id,
         value: getStoredValue(row, metric),
+        plan: metric?.type === 'planFact' ? String(row.plan ?? '').trim() : '',
+        fact: metric?.type === 'planFact' ? String(row.fact ?? '').trim() : '',
         comment: String(row.comment ?? '').trim(),
       };
     });
@@ -279,11 +285,12 @@ export function getDueMetricsForDate(reports, date, owner, metrics = CHECKLIST, 
   return metrics.filter((metric) => shouldShowMetricForDate(reports, date, owner, metric, options));
 }
 
-export function shouldShowMetricForDate(reports, date, owner, metric, { hideSubmittedForDate = false, hideFilledForDate = false } = {}) {
+export function shouldShowMetricForDate(reports, date, owner, metric, { hideSubmittedForDate = false, hideFilledForDate = false, sharedOwners = [] } = {}) {
   if (metric.category === 'monthly' && !isMonthlyMetricInFillingWindow(metric, date)) return false;
 
+  const ownerGroup = createOwnerGroup(owner, sharedOwners);
   const reportAlreadyHasMetric = (report) => (
-    report.owner === owner
+    ownerGroup.has(normalizeText(report.owner))
     && isMetricFilled(report, metric.id)
     && (report.date !== date || (hideFilledForDate && report.date === date) || (hideSubmittedForDate && isMetricSubmitted(report, metric.id)))
   );
@@ -310,6 +317,8 @@ export function isMetricFilled(report, metricId) {
 export function isRowFilled(row) {
   return FILLED_STATUS_VALUES.has(row.status)
     || Boolean(String(row.value ?? '').trim())
+    || Boolean(String(row.plan ?? '').trim())
+    || Boolean(String(row.fact ?? '').trim())
     || Boolean(String(row.comment ?? '').trim());
 }
 
@@ -378,9 +387,33 @@ function getStatusLabel(status) {
 }
 
 function getStoredValue(row, metric) {
+  if (metric?.type === 'planFact') return formatPlanFactValue(row);
   if (metric?.type === 'number' || metric?.type === 'percent') return String(row.value ?? '').trim();
   if (String(row.value ?? '').trim()) return String(row.value ?? '').trim();
   return STATUS[row.status] ?? '';
+}
+
+function formatPlanFactValue(row) {
+  const plan = String(row.plan ?? '').trim();
+  const fact = String(row.fact ?? '').trim();
+  return [plan ? `План: ${plan}` : '', fact ? `Факт: ${fact}` : ''].filter(Boolean).join('; ');
+}
+
+function getPlanFactFromDataRow(dataRow) {
+  const explicitPlan = String(dataRow.plan ?? dataRow['План'] ?? '').trim();
+  const explicitFact = String(dataRow.fact ?? dataRow['Факт'] ?? '').trim();
+  if (explicitPlan || explicitFact) return { plan: explicitPlan, fact: explicitFact };
+
+  const value = String(dataRow.value ?? dataRow['Значение'] ?? '');
+  return {
+    plan: getPlanFactPart(value, 'план'),
+    fact: getPlanFactPart(value, 'факт'),
+  };
+}
+
+function getPlanFactPart(value, label) {
+  const match = String(value).match(new RegExp(`${label}\\s*:\\s*([^;]+)`, 'iu'));
+  return match ? match[1].trim() : '';
 }
 
 function getStatusFromStoredValue(value, fallback = '') {
@@ -398,6 +431,12 @@ function findMetricByName(metricName, checklist) {
 
 function normalizeText(value) {
   return String(value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function createOwnerGroup(owner, sharedOwners = []) {
+  return new Set([owner, ...sharedOwners]
+    .map((value) => normalizeText(value))
+    .filter(Boolean));
 }
 
 function getLegacyReport(reports, date, owner) {

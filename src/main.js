@@ -115,7 +115,8 @@ function exportCsv() {
 function getOwnerContext() {
   const employee = findSelectedEmployee();
   const roleMetrics = employee ? getMetricsForRole(employee.role, state.catalog.checklist) : [];
-  const dueMetrics = employee ? getDueMetricsForDate(state.reports, state.date, employee.fullName, roleMetrics, { hideSubmittedForDate: true }) : [];
+  const sharedOwners = employee ? getSharedMetricOwners(employee).map((teammate) => teammate.fullName) : [];
+  const dueMetrics = employee ? getDueMetricsForDate(state.reports, state.date, employee.fullName, roleMetrics, { hideSubmittedForDate: true, sharedOwners }) : [];
   const metrics = state.frequencyFilter === 'all'
     ? dueMetrics
     : dueMetrics.filter((metric) => metric.category === state.frequencyFilter);
@@ -124,6 +125,7 @@ function getOwnerContext() {
     roleMetrics,
     metrics,
     groups: groupMetricsByFrequency(metrics),
+    sharedOwners,
   };
 }
 
@@ -374,6 +376,11 @@ function createControlCell(item, row) {
     return wrapper;
   }
 
+  if (item.type === 'planFact') {
+    wrapper.append(createPlanFactFields(item, row), createCommentField(item, row));
+    return wrapper;
+  }
+
   const group = document.createElement('div');
   group.className = 'status-toggle';
 
@@ -402,6 +409,34 @@ function createControlCell(item, row) {
 
   wrapper.append(group, createCommentField(item, row));
   return wrapper;
+}
+
+function createPlanFactFields(item, row) {
+  const fields = document.createElement('div');
+  fields.className = 'plan-fact-fields';
+  fields.append(
+    createPlanFactField(item, row, 'plan', 'План'),
+    createPlanFactField(item, row, 'fact', 'Факт'),
+  );
+  return fields;
+}
+
+function createPlanFactField(item, row, field, labelText) {
+  const label = document.createElement('label');
+  label.className = 'inline-field plan-fact-field';
+  const caption = document.createElement('span');
+  caption.textContent = labelText;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = row[field] ?? '';
+  input.placeholder = labelText;
+  input.disabled = isMetricLocked(item);
+  input.addEventListener('input', (event) => {
+    updateRow(item.id, { [field]: event.target.value }, { shouldRender: false });
+    updateSaveButtons();
+  });
+  label.append(caption, input);
+  return label;
 }
 
 function createCommentField(item, row) {
@@ -1285,6 +1320,17 @@ function getEmployeesForDepartment(department) {
   return state.catalog.infoRows
     .filter((employee) => employee.department === department)
     .sort((a, b) => a.fullName.localeCompare(b.fullName, 'ru'));
+}
+
+function getSharedMetricOwners(employee) {
+  const department = normalizeText(employee.department);
+  const role = normalizeText(employee.role);
+  if (!department || !role) return [employee];
+
+  return state.catalog.infoRows.filter((teammate) => (
+    normalizeText(teammate.department) === department
+    && normalizeText(teammate.role) === role
+  ));
 }
 
 function findSelectedEmployee() {

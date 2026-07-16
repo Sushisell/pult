@@ -107,6 +107,8 @@ function readDataRows_(sheet) {
     metric: getCell_(row, 3),
     value: getCell_(row, 4),
     comment: getCell_(row, 5),
+    plan: getCell_(row, 6),
+    fact: getCell_(row, 7),
   })).filter((row) => row.date && row.owner && row.metric);
 }
 
@@ -116,7 +118,7 @@ function writeDataRows_(dataRows) {
   const rowsByKey = new Map(readExistingDataRowIndexes_(sheet));
 
   dataRows.forEach((row) => {
-    const values = [row.date, row.owner, row.metric, row.value, row.comment].map((value) => String(value ?? '').trim());
+    const values = [row.date, row.owner, row.metric, row.value, row.comment, row.plan, row.fact].map((value) => String(value ?? '').trim());
     if (!values[0] || !values[1] || !values[2]) return;
     const key = getDataRowKey_(values[0], values[1], values[2]);
     const existingRow = rowsByKey.get(key);
@@ -132,7 +134,7 @@ function writeDataRows_(dataRows) {
 function getOrCreateDataSheet_(spreadsheet) {
   let sheet = spreadsheet.getSheetByName(CONFIG.dataSheetName);
   if (!sheet) sheet = spreadsheet.insertSheet(CONFIG.dataSheetName);
-  if (sheet.getLastRow() === 0) sheet.appendRow(['Дата', 'ФИО', 'Метрика', 'Значение', 'Комментарий']);
+  if (sheet.getLastRow() === 0) sheet.appendRow(['Дата', 'ФИО', 'Метрика', 'Значение', 'Комментарий', 'План', 'Факт']);
   return sheet;
 }
 
@@ -151,6 +153,7 @@ function getTypeByClassification_(classification) {
   const normalized = String(classification ?? '').trim().toLowerCase();
   if (normalized === 'ввод числа') return 'number';
   if (normalized === 'ввод процента' || normalized === 'процент') return 'percent';
+  if (normalized === 'план факт' || normalized === 'план/факт' || normalized === 'plan fact' || normalized === 'planfact') return 'planFact';
   return 'checkbox';
 }
 

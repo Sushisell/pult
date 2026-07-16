@@ -535,6 +535,16 @@ textarea:focus {
   font-weight: 800;
 }
 
+.plan-fact-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.plan-fact-field {
+  grid-template-columns: 52px minmax(0, 1fr);
+}
+
 textarea {
   min-height: 74px;
   resize: vertical;
