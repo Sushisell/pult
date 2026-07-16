@@ -151,7 +151,7 @@ function normalizeMetricRows(rows) {
       role: String(row.role ?? row['Должность ответственного'] ?? row['Роль'] ?? '').trim(),
       managerRole: String(row.managerRole ?? row.dashboardManagerRole ?? row['Руководитель для дашборда'] ?? row['Роль руководителя'] ?? '').trim(),
       reportFormat: String(row.reportFormat ?? row['Формат отчёта'] ?? row.description ?? row['Описание'] ?? row.classification ?? row['Классификация'] ?? 'Проверено / не проверено').trim(),
-      classification: String(row.classification ?? row['Классификация'] ?? row['Классификация метрики'] ?? row.type ?? row['Тип'] ?? '').trim(),
+      classification: String(row.classification ?? row['Классификация'] ?? row['Классификация метрики'] ?? row.type ?? row['Тип'] ?? row['Тип задания'] ?? '').trim(),
       type: getMetricType(row),
       placeholder: row.placeholder ?? row['Плейсхолдер'] ?? undefined,
       suffix: row.suffix ?? row['Суффикс'] ?? undefined,
@@ -175,11 +175,11 @@ function normalizeDataRows(dataRows) {
 }
 
 function getMetricType(row) {
-  const rawType = String(row.type ?? row['Тип'] ?? '').trim();
-  const classification = normalizeText(row.classification ?? row['Классификация'] ?? row['Классификация метрики'] ?? rawType);
+  const rawType = String(row.type ?? row['Тип'] ?? row['Тип задания'] ?? '').trim();
+  const classification = normalizeMetricType(row.classification ?? row['Классификация'] ?? row['Классификация метрики'] ?? row['Тип задания'] ?? rawType);
   if (classification === 'ввод числа' || classification === 'number') return 'number';
   if (classification === 'ввод процента' || classification === 'процент' || classification === 'percent') return 'percent';
-  if (classification === 'план факт' || classification === 'план/факт' || classification === 'plan fact' || classification === 'planfact') return 'planFact';
+  if (classification === 'план факт' || classification === 'план/факт' || classification === 'план-факт' || classification === 'plan fact' || classification === 'plan/fact' || classification === 'plan-fact' || classification === 'planfact') return 'planFact';
   if (classification === 'проверено' || classification === 'checkbox') return 'checkbox';
   return rawType || 'checkbox';
 }
@@ -188,6 +188,14 @@ function getFrequencyCategory(frequency) {
   const normalizedFrequency = normalizeText(frequency);
   const entry = Object.entries(FREQUENCIES).find(([, label]) => normalizeText(label) === normalizedFrequency);
   return entry?.[0] ?? 'daily';
+}
+
+function normalizeMetricType(value) {
+  return String(value ?? '')
+    .trim()
+    .replace(/\s*([\/-])\s*/g, '$1')
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
 }
 
 function normalizeText(value) {
