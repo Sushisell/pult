@@ -122,6 +122,22 @@ describe('daily report storage helpers', () => {
     assert.equal(dueNextDay.some((metric) => metric.id === daily.id), true);
   });
 
+  it('hides metrics submitted by another employee with the same department role', () => {
+    const report = createEmptyReport('2026-06-01', TEST_CHECKLIST, 'Первый HR');
+    const hrMetrics = getMetricsForRole('HR', TEST_CHECKLIST);
+    const daily = hrMetrics.find((metric) => metric.category === 'daily');
+    report.rows.find((row) => row.id === daily.id).status = 'done';
+    const reports = upsertReport({}, markReportMetricsSubmitted(report, [daily]));
+
+    const dueMetrics = getDueMetricsForDate(reports, '2026-06-01', 'Второй HR', hrMetrics, {
+      hideSubmittedForDate: true,
+      sharedOwners: ['Первый HR', 'Второй HR'],
+    });
+
+    assert.equal(dueMetrics.some((metric) => metric.id === daily.id), false);
+    assert.deepEqual(buildDataRows(report, [daily]).map((row) => row.owner), ['Первый HR']);
+  });
+
   it('can hide filled daily metric drafts on the selected date', () => {
     const report = createEmptyReport('2026-06-01', TEST_CHECKLIST, 'Тестовый Сотрудник HR');
     const hrMetrics = getMetricsForRole('HR', TEST_CHECKLIST);
@@ -223,6 +239,7 @@ describe('daily report storage helpers', () => {
     assert.equal(catalog.checklist[0].managerRole, 'Директор');
     assert.equal(createCatalog({ metricSheets: [{ name: 'Типы', rows: [{ frequency: 'ежедневно', metric: 'Число', role: 'Операции', classification: 'Ввод числа' }] }] }).checklist[0].type, 'number');
     assert.equal(createCatalog({ metricSheets: [{ name: 'Типы', rows: [{ frequency: 'ежедневно', metric: 'Конверсия', role: 'Операции', classification: 'Ввод процента' }] }] }).checklist[0].type, 'percent');
+    assert.equal(createCatalog({ metricSheets: [{ name: 'Типы', rows: [{ frequency: 'ежедневно', metric: 'План продаж', role: 'Операции', classification: 'План факт' }] }] }).checklist[0].type, 'planFact');
     assert.deepEqual(groupMetricsByFrequency(catalog.checklist).map((group) => group.id), ['daily', 'monthly']);
   });
 
@@ -259,6 +276,25 @@ describe('daily report storage helpers', () => {
     assert.equal(getCompletion(report, catalog.checklist).done, 2);
     assert.deepEqual(buildDataRows(report, catalog.checklist), catalog.dataRows);
     assert.equal(isReportSubmittedForCategory(report, 'daily'), true);
+  });
+
+  it('stores plan/fact metrics as two fields and keeps a combined Data value', () => {
+    const catalog = createCatalog({
+      infoRows: [{ fullName: 'Мария Реальная', role: 'Продажи' }],
+      metricSheets: [{
+        name: 'Продажи',
+        rows: [{ frequency: 'ежедневно', metric: 'Выручка план-факт', role: 'Продажи', classification: 'План факт' }],
+      }],
+      dataRows: [
+        { date: '2026-06-01', owner: 'Мария Реальная', metric: 'Выручка план-факт', value: 'План: 100; Факт: 95', comment: 'Почти', plan: '100', fact: '95' },
+      ],
+    });
+    const reports = buildReportsFromDataRows(catalog.dataRows, catalog.checklist);
+    const report = getReportForDate(reports, '2026-06-01', catalog.checklist, 'Мария Реальная');
+
+    assert.equal(report.rows[0].plan, '100');
+    assert.equal(report.rows[0].fact, '95');
+    assert.deepEqual(buildDataRows(report, catalog.checklist), catalog.dataRows);
   });
 
 

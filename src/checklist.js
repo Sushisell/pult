@@ -168,6 +168,8 @@ function normalizeDataRows(dataRows) {
       metric: String(row.metric ?? row['Метрика'] ?? '').trim(),
       value: String(row.value ?? row['Значение'] ?? '').trim(),
       comment: String(row.comment ?? row['Комментарий'] ?? '').trim(),
+      plan: String(row.plan ?? row['План'] ?? '').trim(),
+      fact: String(row.fact ?? row['Факт'] ?? '').trim(),
     }))
     .filter((row) => row.date && row.owner && row.metric);
 }
@@ -177,6 +179,7 @@ function getMetricType(row) {
   const classification = normalizeText(row.classification ?? row['Классификация'] ?? row['Классификация метрики'] ?? rawType);
   if (classification === 'ввод числа' || classification === 'number') return 'number';
   if (classification === 'ввод процента' || classification === 'процент' || classification === 'percent') return 'percent';
+  if (classification === 'план факт' || classification === 'план/факт' || classification === 'plan fact' || classification === 'planfact') return 'planFact';
   if (classification === 'проверено' || classification === 'checkbox') return 'checkbox';
   return rawType || 'checkbox';
 }
