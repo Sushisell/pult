@@ -1,4 +1,4 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.11';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.11';
 import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.11';
 import { APP_VERSION } from './version.js?v=0.1.11';
 import {
@@ -1323,14 +1323,7 @@ function getEmployeesForDepartment(department) {
 }
 
 function getSharedMetricOwners(employee) {
-  const department = normalizeText(employee.department);
-  const role = normalizeText(employee.role);
-  if (!department || !role) return [employee];
-
-  return state.catalog.infoRows.filter((teammate) => (
-    normalizeText(teammate.department) === department
-    && normalizeText(teammate.role) === role
-  ));
+  return getEmployeesWithSharedRole(employee, state.catalog.infoRows);
 }
 
 function findSelectedEmployee() {
