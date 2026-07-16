@@ -23,18 +23,18 @@ const CONFIG = {
   },
   metrics: {
     // На всех листах с метриками: A = периодичность, B = название, C = описание, D = цель,
-    // F = должность ответственного, G = срок сдачи, I = классификация метрики, J = руководитель, которому нужен дашборд.
+    // F = должность ответственного, G = срок сдачи, I = тип задания (например «План/факт»).
     frequencyColumn: 1,
     metricColumn: 2,
     descriptionColumn: 3,
     goalColumn: 4,
     roleColumn: 6,
     deadlineColumn: 7,
-    classificationColumn: 9,
-    managerRoleColumn: 10,
+    classificationColumn: null,
+    typeColumn: 9,
+    managerRoleColumn: null,
     // Необязательные колонки. Оставьте null, если их нет в таблице.
     reportFormatColumn: null,
-    typeColumn: null,
     placeholderColumn: null,
     suffixColumn: null,
   },
@@ -92,7 +92,7 @@ function readMetricSheet_(sheet) {
       classification: getOptionalCell_(row, CONFIG.metrics.classificationColumn),
       managerRole: getOptionalCell_(row, CONFIG.metrics.managerRoleColumn),
       reportFormat: getOptionalCell_(row, CONFIG.metrics.reportFormatColumn) || getOptionalCell_(row, CONFIG.metrics.descriptionColumn) || 'Проверено / не проверено',
-      type: getOptionalCell_(row, CONFIG.metrics.typeColumn) || getTypeByClassification_(getOptionalCell_(row, CONFIG.metrics.classificationColumn)),
+      type: getTypeByClassification_(getOptionalCell_(row, CONFIG.metrics.typeColumn) || getOptionalCell_(row, CONFIG.metrics.classificationColumn)),
       placeholder: getOptionalCell_(row, CONFIG.metrics.placeholderColumn),
       suffix: getOptionalCell_(row, CONFIG.metrics.suffixColumn),
       sourceRow: index + CONFIG.headerRows + 1,
@@ -150,11 +150,19 @@ function getDataRowKey_(date, owner, metric) {
 }
 
 function getTypeByClassification_(classification) {
-  const normalized = String(classification ?? '').trim().toLowerCase();
+  const normalized = normalizeTypeValue_(classification);
   if (normalized === 'ввод числа') return 'number';
   if (normalized === 'ввод процента' || normalized === 'процент') return 'percent';
-  if (normalized === 'план факт' || normalized === 'план/факт' || normalized === 'plan fact' || normalized === 'planfact') return 'planFact';
+  if (normalized === 'план факт' || normalized === 'план/факт' || normalized === 'план-факт' || normalized === 'plan fact' || normalized === 'plan/fact' || normalized === 'plan-fact' || normalized === 'planfact') return 'planFact';
   return 'checkbox';
+}
+
+function normalizeTypeValue_(value) {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s*([\/-])\s*/g, '$1')
+    .replace(/\s+/g, ' ');
 }
 
 function getDataRows_(sheet) {

@@ -240,6 +240,7 @@ describe('daily report storage helpers', () => {
     assert.equal(createCatalog({ metricSheets: [{ name: 'Типы', rows: [{ frequency: 'ежедневно', metric: 'Число', role: 'Операции', classification: 'Ввод числа' }] }] }).checklist[0].type, 'number');
     assert.equal(createCatalog({ metricSheets: [{ name: 'Типы', rows: [{ frequency: 'ежедневно', metric: 'Конверсия', role: 'Операции', classification: 'Ввод процента' }] }] }).checklist[0].type, 'percent');
     assert.equal(createCatalog({ metricSheets: [{ name: 'Типы', rows: [{ frequency: 'ежедневно', metric: 'План продаж', role: 'Операции', classification: 'План факт' }] }] }).checklist[0].type, 'planFact');
+    assert.equal(createCatalog({ metricSheets: [{ name: 'Типы', rows: [{ frequency: 'ежедневно', metric: 'План/факт из I', role: 'Операции', 'Тип задания': 'План / факт' }] }] }).checklist[0].type, 'planFact');
     assert.deepEqual(groupMetricsByFrequency(catalog.checklist).map((group) => group.id), ['daily', 'monthly']);
   });
 
