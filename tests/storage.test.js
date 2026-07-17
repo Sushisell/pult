@@ -332,7 +332,7 @@ describe('daily report storage helpers', () => {
         rows: [{ frequency: 'ежедневно', metric: 'Выручка план-факт', role: 'Продажи', classification: 'План факт' }],
       }],
       dataRows: [
-        { date: '2026-06-01', owner: 'Мария Реальная', metric: 'Выручка план-факт', value: 'План: 100; Факт: 95', comment: 'Почти', plan: '100', fact: '95' },
+        { date: '2026-06-01', owner: 'Мария Реальная', metric: 'Выручка план-факт', value: '105,26%', comment: 'План: 100; Факт: 95; Почти', plan: '100', fact: '95' },
       ],
     });
     const reports = buildReportsFromDataRows(catalog.dataRows, catalog.checklist);
@@ -340,6 +340,7 @@ describe('daily report storage helpers', () => {
 
     assert.equal(report.rows[0].plan, '100');
     assert.equal(report.rows[0].fact, '95');
+    assert.equal(report.rows[0].comment, 'Почти');
     assert.deepEqual(buildDataRows(report, catalog.checklist), catalog.dataRows);
   });
 
