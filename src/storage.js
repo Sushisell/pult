@@ -128,9 +128,9 @@ export function reconcileSubmittedMetricsWithSheetReports(reports = {}, sheetRep
   }));
 }
 
-export function buildReportsFromDataRows(dataRows = [], checklist = CHECKLIST) {
+export function buildReportsFromDataRows(dataRows = [], checklist = CHECKLIST, infoRows = INFO_ROWS) {
   return dataRows.reduce((reports, dataRow) => {
-    const metric = findMetricByName(dataRow.metric, checklist);
+    const metric = findMetricForDataRow(dataRow, checklist, infoRows);
     if (!metric) return reports;
 
     const report = getReportForDate(reports, dataRow.date, checklist, dataRow.owner);
@@ -429,9 +429,20 @@ function getStatusFromStoredValue(value, fallback = '') {
   return 'done';
 }
 
-function findMetricByName(metricName, checklist) {
+function findMetricForDataRow(dataRow, checklist, infoRows = INFO_ROWS) {
+  const matches = findMetricsByName(dataRow.metric, checklist);
+  if (matches.length <= 1) return matches[0] ?? null;
+
+  const employee = findEmployeeByFullName(dataRow.owner, infoRows);
+  if (!employee) return matches[0] ?? null;
+
+  const ownerMetricIds = new Set(getMetricsForRole(employee.role, checklist).map((metric) => metric.id));
+  return matches.find((metric) => ownerMetricIds.has(metric.id)) ?? matches[0] ?? null;
+}
+
+function findMetricsByName(metricName, checklist) {
   const normalizedMetricName = normalizeText(metricName);
-  return checklist.find((metric) => normalizeText(metric.metric) === normalizedMetricName);
+  return checklist.filter((metric) => normalizeText(metric.metric) === normalizedMetricName);
 }
 
 function normalizeText(value) {

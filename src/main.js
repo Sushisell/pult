@@ -1368,7 +1368,7 @@ function hasCatalogOwner(owner, department = state.department) {
 async function hydrateCatalog() {
   try {
     state.catalog = await loadCatalog();
-    state.sheetReports = buildReportsFromDataRows(state.catalog.dataRows, state.catalog.checklist);
+    state.sheetReports = buildReportsFromDataRows(state.catalog.dataRows, state.catalog.checklist, state.catalog.infoRows);
     state.reports = reconcileSubmittedMetricsWithSheetReports(
       mergeReports(state.localReports, state.sheetReports),
       state.sheetReports,
