@@ -2,12 +2,14 @@ export const FREQUENCIES = {
   daily: 'ежедневно',
   weekly: 'еженедельно',
   monthly: 'ежемесячно',
+  quarterly: 'ежеквартально',
 };
 
 export const CATEGORIES = [
   { id: 'daily', label: 'Ежедневно', icon: '📅' },
   { id: 'weekly', label: 'Еженедельно', icon: '🗓️' },
   { id: 'monthly', label: 'Ежемесячно', icon: '📆' },
+  { id: 'quarterly', label: 'Ежеквартально', icon: '🧭' },
 ];
 
 export const INFO_ROWS = [];
@@ -197,7 +199,13 @@ function getMetricType(row) {
 
 function getFrequencyCategory(frequency) {
   const normalizedFrequency = normalizeText(frequency);
-  const entry = Object.entries(FREQUENCIES).find(([, label]) => normalizeText(label) === normalizedFrequency);
+  const aliases = {
+    daily: ['ежедневно', 'каждый день', 'день'],
+    weekly: ['еженедельно', 'еженедельная', 'каждую неделю', 'неделя'],
+    monthly: ['ежемесячно', 'ежемесячная', 'каждый месяц', 'месяц'],
+    quarterly: ['ежеквартально', 'ежеквартальная', 'каждый квартал', 'квартал'],
+  };
+  const entry = Object.entries(aliases).find(([, labels]) => labels.includes(normalizedFrequency));
   return entry?.[0] ?? 'daily';
 }
 
