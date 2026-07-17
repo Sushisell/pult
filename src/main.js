@@ -26,6 +26,7 @@ import {
 } from './storage.js?v=0.1.11';
 
 const COMMENT_MAX_LENGTH = 200;
+const URL_STATE_KEYS = ['date', 'department', 'owner', 'view'];
 
 const state = {
   localReports: loadReports(),
@@ -38,6 +39,7 @@ const state = {
   report: null,
   department: '',
   hasSelectedIdentity: false,
+  initialUrlState: readUrlState(),
   isSavingReport: false,
   catalog: {
     infoRows: INFO_ROWS,
@@ -72,6 +74,7 @@ const elements = {
 };
 
 state.reports = { ...state.localReports };
+applyInitialUrlDate();
 state.report = createEditableReport(state.date, '');
 elements.dateInput.value = state.date;
 if (elements.appVersion) elements.appVersion.textContent = `v${APP_VERSION}`;
@@ -187,6 +190,7 @@ function renderViewTabs(hasDashboard) {
     button.addEventListener('click', () => {
       if (tab.disabled) return;
       state.activeView = tab.id;
+      syncUrlState();
       render();
     });
     elements.viewTabs.append(button);
@@ -737,7 +741,7 @@ function createManagerFrequencySection(group) {
   const title = group.id === 'daily' ? 'Ежедневные проверки' : `${group.label} проверки`;
   const subtitle = group.id === 'daily'
     ? `${rows.length} ${metricLabel} · последние 5 дней до выбранной даты включительно`
-    : `${rows.length} ${metricLabel} · ${periods.length} периодов · статусы показаны только цветными кружками`;
+    : `${rows.length} ${metricLabel} · ${periods.length} периодов · статусы и числовая динамика по таблице`;
 
   section.innerHTML = `
     <div class="manager-card-title manager-card-title-rich">
@@ -761,7 +765,7 @@ function createManagerFrequencySection(group) {
             <tr>
               <th scope="row">${escapeHtml(row.metric.metric)}</th>
               ${isNumericMetric(row.metric)
-                ? periods.map((period) => createManagerMatrixNumericCell(row.byPeriod.get(period.id), row.metric, period)).join('')
+                ? createManagerMatrixChartCell(row, periods)
                 : periods.map((period) => createManagerMatrixDotCell(row.byPeriod.get(period.id))).join('')}
             </tr>
           `).join('')}
@@ -1145,6 +1149,7 @@ function setReportDate(nextDate) {
   elements.dateError.hidden = true;
   elements.dateInput.setCustomValidity('');
   state.date = nextDate;
+  syncUrlState();
   const selectedOwner = state.hasSelectedIdentity && hasCatalogOwner(state.report.owner, state.department) ? state.report.owner : '';
   state.report = createEditableReport(state.date, selectedOwner);
   render();
@@ -1327,6 +1332,7 @@ elements.departmentInput.addEventListener('change', (event) => {
   state.department = event.target.value;
   state.hasSelectedIdentity = false;
   state.report = createEditableReport(state.date, '');
+  syncUrlState();
   refreshOwnerOptions();
   render();
 });
@@ -1334,6 +1340,7 @@ elements.departmentInput.addEventListener('change', (event) => {
 elements.ownerInput.addEventListener('change', (event) => {
   state.hasSelectedIdentity = Boolean(event.target.value);
   state.report = createEditableReport(state.date, event.target.value);
+  syncUrlState();
   render();
 });
 elements.saveReportButton.addEventListener('click', saveReport);
@@ -1431,6 +1438,49 @@ function hasCatalogDepartment(department) {
   return getDepartments().includes(department);
 }
 
+function applyInitialUrlDate() {
+  const requestedDate = state.initialUrlState.date;
+  if (requestedDate && requestedDate <= todayISO()) state.date = requestedDate;
+  if (state.initialUrlState.view === 'dashboard') state.activeView = 'dashboard';
+}
+
+function applyInitialCatalogSelection() {
+  const { department, owner } = state.initialUrlState;
+  if (department && hasCatalogDepartment(department)) state.department = department;
+  if (owner && hasCatalogOwner(owner, state.department)) {
+    state.hasSelectedIdentity = true;
+    state.report = createEditableReport(state.date, owner);
+  }
+}
+
+function readUrlState() {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    date: params.get('date') ?? '',
+    department: params.get('department') ?? '',
+    owner: params.get('owner') ?? '',
+    view: params.get('view') ?? '',
+  };
+}
+
+function syncUrlState() {
+  const url = new URL(window.location.href);
+  const values = {
+    date: state.date,
+    department: state.department,
+    owner: state.hasSelectedIdentity ? state.report.owner : '',
+    view: state.activeView === 'dashboard' ? 'dashboard' : '',
+  };
+
+  for (const key of URL_STATE_KEYS) {
+    const value = values[key];
+    if (value) url.searchParams.set(key, value);
+    else url.searchParams.delete(key);
+  }
+
+  window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+}
+
 function hasCatalogOwner(owner, department = state.department) {
   return getEmployeesForDepartment(department).some((employee) => employee.fullName === owner);
 }
@@ -1443,11 +1493,13 @@ async function hydrateCatalog() {
       mergeReports(state.localReports, state.sheetReports),
       state.sheetReports,
     );
+    applyInitialCatalogSelection();
     if (!hasCatalogDepartment(state.department)) state.department = '';
     const selectedOwner = state.hasSelectedIdentity && hasCatalogOwner(state.report?.owner, state.department) ? state.report.owner : '';
     state.report = createEditableReport(state.date, selectedOwner);
     refreshDepartmentOptions();
     refreshOwnerOptions();
+    syncUrlState();
     render();
   } finally {
     hideLoadingScreen();
