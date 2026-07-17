@@ -360,6 +360,11 @@ function createControlCell(item, row) {
   const wrapper = document.createElement('div');
   wrapper.className = 'control-stack';
 
+  if (item.type === 'planFact') {
+    wrapper.append(createPlanFactFields(item, row), createCommentField(item, row));
+    return wrapper;
+  }
+
   if (isNumericMetric(item)) {
     const inlineField = document.createElement('div');
     inlineField.className = 'inline-field';
@@ -376,11 +381,6 @@ function createControlCell(item, row) {
     suffix.textContent = item.suffix ?? (item.type === 'percent' ? '%' : '');
     inlineField.append(input, suffix);
     wrapper.append(inlineField, createCommentField(item, row));
-    return wrapper;
-  }
-
-  if (item.type === 'planFact') {
-    wrapper.append(createPlanFactFields(item, row), createCommentField(item, row));
     return wrapper;
   }
 
@@ -521,7 +521,9 @@ function renderManagerDashboard(employee, { isAvailable = false } = {}) {
 
 function buildManagerMetricsDashboard(team) {
   const selectedCategories = getSelectedDashboardCategories();
-  const metricStates = selectedCategories.flatMap((category) => buildDashboardFrequencyStates(team, category));
+  const metricStates = hideEmptyWeekendDailyStates(
+    selectedCategories.flatMap((category) => buildDashboardFrequencyStates(team, category)),
+  );
   return {
     team,
     metricStates,
@@ -532,6 +534,23 @@ function buildManagerMetricsDashboard(team) {
     })).filter((group) => group.states.length > 0),
     roleHealth: createRoleHealth(metricStates),
   };
+}
+
+function hideEmptyWeekendDailyStates(states) {
+  const filledWeekendPeriods = new Set(states
+    .filter((entry) => entry.metric.category === 'daily' && isWeekendISODate(entry.period.start) && entry.filled)
+    .map((entry) => entry.period.id));
+
+  return states.filter((entry) => (
+    entry.metric.category !== 'daily'
+    || !isWeekendISODate(entry.period.start)
+    || filledWeekendPeriods.has(entry.period.id)
+  ));
+}
+
+function isWeekendISODate(date) {
+  const day = new Date(`${date}T00:00:00.000Z`).getUTCDay();
+  return day === 0 || day === 6;
 }
 
 function getSelectedDashboardCategories() {
@@ -804,23 +823,24 @@ function createManagerMatrixCellState(entries) {
 
 
 function createManagerMatrixChartCell(row, periods) {
-  const points = periods.map((period) => getManagerNumericPoint(row.byPeriod.get(period.id), row.metric));
+  const points = periods.map((period) => getManagerNumericPoint(row.byPeriod.get(period.id), row.metric, period));
   const values = points.map((point) => point.value).filter((value) => Number.isFinite(value));
   const title = values.length > 0
-    ? `Динамика: ${points.map((point) => `${point.label}: ${point.display ?? 'нет данных'}${point.comments ? ` (${point.comments})` : ''}`).join(' · ')}`
+    ? `Динамика: ${points.map((point) => `${point.label}: ${point.display ?? '—'}${point.comments ? ` (${point.comments})` : ''}`).join(' · ')}`
     : 'Нет числовых данных для диаграммы';
   return `<td class="manager-chart-cell" colspan="${periods.length}">${createManagerSparkline(points, row.metric, title)}</td>`;
 }
 
-function getManagerNumericPoint(cell, metric) {
+function getManagerNumericPoint(cell, metric, period) {
   const entries = cell?.entries ?? [];
   const values = entries
-    .map((entry) => parseMetricNumber(entry.row?.value))
+    .map((entry) => getManagerNumericValue(entry.row, metric))
     .filter((value) => Number.isFinite(value));
   const value = values.length === 0 ? null : values.reduce((sum, item) => sum + item, 0) / values.length;
   return {
     value,
-    label: entries[0]?.period ? getManagerPeriodShortLabel(entries[0].period) : '',
+    label: period ? getManagerPeriodShortLabel(period) : entries[0]?.period ? getManagerPeriodShortLabel(entries[0].period) : '',
+    shortLabel: period ? formatRuDateShort(period.start) : entries[0]?.period ? formatRuDateShort(entries[0].period.start) : '',
     display: value === null ? null : formatMetricNumber(value, metric),
     comments: getManagerMatrixComments(entries),
   };
@@ -831,12 +851,12 @@ function createManagerSparkline(points, metric, title) {
   const height = 96;
   const padding = 14;
   const values = points.map((point) => point.value).filter((value) => Number.isFinite(value));
-  if (values.length === 0) return `<div class="manager-sparkline-empty">Нет данных</div>`;
+  if (values.length === 0) return `<div class="manager-sparkline-empty">—</div>`;
   const min = Math.min(...values);
   const max = Math.max(...values);
   const range = max - min || 1;
   const coords = points.map((point, index) => {
-    const x = points.length === 1 ? width / 2 : padding + ((width - padding * 2) * index) / (points.length - 1);
+    const x = points.length === 1 ? width / 2 : (width * (index + 0.5)) / points.length;
     const y = Number.isFinite(point.value) ? height - padding - ((point.value - min) / range) * (height - padding * 2) : null;
     return { ...point, x, y };
   });
@@ -844,14 +864,19 @@ function createManagerSparkline(points, metric, title) {
   return `
     <div class="manager-sparkline" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">
       <svg viewBox="0 0 ${width} ${height}" role="img" aria-hidden="true" focusable="false">
-        <line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" />
+        <line x1="${width / (points.length * 2)}" y1="${height - padding}" x2="${width - (width / (points.length * 2))}" y2="${height - padding}" />
         <polyline points="${line}" />
-        ${coords.filter((point) => point.y !== null).map((point) => `<g class="manager-sparkline-point${point.comments ? ' has-comment' : ''}"><circle cx="${point.x}" cy="${point.y}" r="4"><title>${escapeHtml([point.display, point.comments].filter(Boolean).join(' · '))}</title></circle><text x="${point.x}" y="${Math.max(12, point.y - 10)}" text-anchor="middle">${escapeHtml(point.display)}</text></g>`).join('')}
+        ${coords.filter((point) => point.y !== null).map((point) => `<g class="manager-sparkline-point${point.comments ? ' has-comment' : ''}${metric?.type === 'planFact' ? getPlanFactHealthClass(point.value) : ''}"><circle cx="${point.x}" cy="${point.y}" r="4"><title>${escapeHtml([point.display, point.comments].filter(Boolean).join(' · '))}</title></circle><text x="${point.x}" y="${Math.max(12, point.y - 10)}" text-anchor="middle">${escapeHtml(point.display)}</text></g>`).join('')}
       </svg>
-      <div class="manager-sparkline-labels">
-        ${points.map((point) => `<span>${escapeHtml(point.label)}: ${escapeHtml(point.display ?? 'нет данных')}</span>`).join('')}
+      <div class="manager-sparkline-labels" style="grid-template-columns: repeat(${points.length}, minmax(0, 1fr));">
+        ${points.map((point) => `<span${point.comments ? ` title="${escapeHtml(point.comments)}"` : ''}>${escapeHtml(point.shortLabel || point.label)}${point.comments ? ' 💬' : ''}</span>`).join('')}
       </div>
     </div>`;
+}
+
+function getManagerNumericValue(row, metric) {
+  if (metric?.type === 'planFact') return getPlanFactPercent(row?.plan, row?.fact);
+  return parseMetricNumber(row?.value);
 }
 
 function parseMetricNumber(value) {
@@ -860,9 +885,23 @@ function parseMetricNumber(value) {
   return Number(normalized);
 }
 
+function getPlanFactPercent(plan, fact) {
+  const planNumber = parseMetricNumber(plan);
+  const factNumber = parseMetricNumber(fact);
+  if (!Number.isFinite(planNumber) || !Number.isFinite(factNumber) || factNumber === 0) return NaN;
+  return (planNumber / factNumber) * 100;
+}
+
+function getPlanFactHealthClass(value) {
+  if (!Number.isFinite(value)) return '';
+  if (value > 85) return ' is-planfact-good';
+  if (value > 70) return ' is-planfact-warning';
+  return ' is-planfact-danger';
+}
+
 function formatMetricNumber(value, metric) {
   const formatted = Number(value).toLocaleString('ru-RU', { maximumFractionDigits: 1 });
-  if (metric?.type === 'percent') return `${formatted}%`;
+  if (metric?.type === 'percent' || metric?.type === 'planFact') return `${formatted}%`;
   return `${formatted}${metric?.suffix ? ` ${metric.suffix}` : ''}`;
 }
 
