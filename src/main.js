@@ -900,8 +900,11 @@ function createManagerSparkline(points, metric, title) {
 }
 
 function getManagerNumericValue(row, metric) {
-  if (metric?.type === 'planFact') return getPlanFactPercent(row?.plan, row?.fact);
-  return parseMetricNumber(row?.value);
+  const storedValue = parseMetricNumber(row?.value);
+  if (metric?.type === 'planFact') {
+    return Number.isFinite(storedValue) ? storedValue : getPlanFactPercent(row?.plan, row?.fact);
+  }
+  return storedValue;
 }
 
 function parseMetricNumber(value) {
