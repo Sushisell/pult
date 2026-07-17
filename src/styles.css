@@ -1608,16 +1608,19 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
   }
 }
 
-.manager-dot {
+.manager-dot,
+.manager-numeric-dot {
   position: relative;
 }
 
-.manager-dot.has-comment {
+.manager-dot.has-comment,
+.manager-numeric-dot.has-comment {
   outline: 2px solid #ffffff;
   box-shadow: 0 0 0 4px rgb(239 71 111 / 16%), 0 8px 18px rgb(42 48 70 / 18%);
 }
 
-.manager-dot.has-comment::before {
+.manager-dot.has-comment::before,
+.manager-numeric-dot.has-comment::before {
   content: "💬";
   position: absolute;
   right: -8px;
@@ -1627,7 +1630,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
 }
 
 .manager-dot[data-tooltip]:hover::after,
-.manager-dot[data-tooltip]:focus-visible::after {
+.manager-dot[data-tooltip]:focus-visible::after,
+.manager-numeric-dot[data-tooltip]:hover::after,
+.manager-numeric-dot[data-tooltip]:focus-visible::after {
   content: attr(data-tooltip);
   position: absolute;
   left: 50%;
@@ -1665,7 +1670,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
 }
 
 .manager-dot[data-tooltip]:hover::before,
-.manager-dot[data-tooltip]:focus-visible::before {
+.manager-dot[data-tooltip]:focus-visible::before,
+.manager-numeric-dot[data-tooltip]:hover::before,
+.manager-numeric-dot[data-tooltip]:focus-visible::before {
   z-index: 21;
 }
 
@@ -1728,6 +1735,11 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
   stroke: #ffffff;
   stroke-width: 3;
   filter: drop-shadow(0 0 5px rgb(239 71 111 / 55%));
+}
+
+.manager-sparkline-comment {
+  font-size: 0.62rem;
+  pointer-events: none;
 }
 
 .manager-sparkline-point.is-planfact-good circle {

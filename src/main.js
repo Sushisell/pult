@@ -836,14 +836,13 @@ function createManagerMatrixCellState(entries) {
 
 function createManagerMatrixNumericCell(cell, metric, period) {
   const point = getManagerNumericPoint(cell, metric, period);
-  const title = point.display
-    ? `${point.label}: ${point.display}${point.comments ? ` (${point.comments})` : ''}`
-    : `${point.label}: нет данных${point.comments ? ` (${point.comments})` : ''}`;
+  const title = getManagerNumericPointTitle(point);
   const healthClass = metric?.type === 'planFact' ? getPlanFactHealthClass(point.value) : '';
   const value = point.display ?? 'нет данных';
-  return `<td class="manager-numeric-cell${point.display ? ' has-value' : ' is-empty'}${healthClass}" title="${escapeHtml(title)}">
+  const commentClass = point.comments ? ' has-comment' : '';
+  return `<td class="manager-numeric-cell${point.display ? ' has-value' : ' is-empty'}${healthClass}">
     <span class="manager-numeric-value">${escapeHtml(value)}</span>
-    <span class="manager-numeric-dot" aria-hidden="true"></span>
+    <span class="manager-numeric-dot${commentClass}" aria-label="${escapeHtml(title)}" data-tooltip="${escapeHtml(title)}" tabindex="0"></span>
   </td>`;
 }
 
@@ -854,6 +853,13 @@ function createManagerMatrixChartCell(row, periods) {
     ? `Динамика: ${points.map((point) => `${point.label}: ${point.display ?? '—'}${point.comments ? ` (${point.comments})` : ''}`).join(' · ')}`
     : 'Нет числовых данных для диаграммы';
   return `<td class="manager-chart-cell" colspan="${periods.length}">${createManagerSparkline(points, row.metric, title)}</td>`;
+}
+
+
+function getManagerNumericPointTitle(point) {
+  const label = point.label || 'Период';
+  const value = point.display ?? 'нет данных';
+  return `${label}: ${value}${point.comments ? ` (${point.comments})` : ''}`;
 }
 
 function getManagerNumericPoint(cell, metric, period) {
@@ -891,10 +897,10 @@ function createManagerSparkline(points, metric, title) {
       <svg viewBox="0 0 ${width} ${height}" role="img" aria-hidden="true" focusable="false">
         <line x1="${width / (points.length * 2)}" y1="${height - padding}" x2="${width - (width / (points.length * 2))}" y2="${height - padding}" />
         <polyline points="${line}" />
-        ${coords.filter((point) => point.y !== null).map((point) => `<g class="manager-sparkline-point${point.comments ? ' has-comment' : ''}${metric?.type === 'planFact' ? getPlanFactHealthClass(point.value) : ''}"><circle cx="${point.x}" cy="${point.y}" r="4"><title>${escapeHtml([point.display, point.comments].filter(Boolean).join(' · '))}</title></circle><text x="${point.x}" y="${Math.max(12, point.y - 10)}" text-anchor="middle">${escapeHtml(point.display)}</text></g>`).join('')}
+        ${coords.filter((point) => point.y !== null).map((point) => `<g class="manager-sparkline-point${point.comments ? ' has-comment' : ''}${metric?.type === 'planFact' ? getPlanFactHealthClass(point.value) : ''}"><title>${escapeHtml(getManagerNumericPointTitle(point))}</title><circle cx="${point.x}" cy="${point.y}" r="4"></circle><text x="${point.x}" y="${Math.max(12, point.y - 10)}" text-anchor="middle">${escapeHtml(point.display)}</text>${point.comments ? `<text class="manager-sparkline-comment" x="${point.x + 8}" y="${Math.max(12, point.y - 8)}" aria-hidden="true">💬</text>` : ''}</g>`).join('')}
       </svg>
       <div class="manager-sparkline-labels" style="grid-template-columns: repeat(${points.length}, minmax(0, 1fr));">
-        ${points.map((point) => `<span${point.comments ? ` title="${escapeHtml(point.comments)}"` : ''}>${escapeHtml(point.shortLabel || point.label)}${point.comments ? ' 💬' : ''}</span>`).join('')}
+        ${points.map((point) => `<span>${escapeHtml(point.shortLabel || point.label)}</span>`).join('')}
       </div>
     </div>`;
 }
