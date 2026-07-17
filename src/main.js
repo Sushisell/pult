@@ -38,6 +38,7 @@ const state = {
   report: null,
   department: '',
   hasSelectedIdentity: false,
+  isSavingReport: false,
   catalog: {
     infoRows: INFO_ROWS,
     checklist: CHECKLIST,
@@ -330,7 +331,7 @@ function createMetricDetailLabel(text) {
 }
 
 function isNumericMetric(metric) {
-  return metric?.type === 'number' || metric?.type === 'percent';
+  return metric?.type === 'number' || metric?.type === 'percent' || metric?.type === 'planFact';
 }
 
 function createMetricMeta(item, row) {
@@ -869,9 +870,9 @@ function createManagerMatrixDotCell(cell) {
   const status = cell?.status ?? 'empty';
   const title = getManagerMatrixTitle(cell);
   const comments = getManagerMatrixComments(cell?.entries ?? []);
-  const tooltip = [title, comments].filter(Boolean).join('\n');
+  const tooltip = comments || title;
   const commentClass = comments ? ' has-comment' : '';
-  return `<td><span class="manager-dot manager-dot-${status}${commentClass}" title="${escapeHtml(tooltip)}" aria-label="${escapeHtml(tooltip)}" data-tooltip="${escapeHtml(tooltip)}" tabindex="0"></span></td>`;
+  return `<td><span class="manager-dot manager-dot-${status}${commentClass}" aria-label="${escapeHtml(tooltip)}" data-tooltip="${escapeHtml(tooltip)}" tabindex="0"></span></td>`;
 }
 
 function getManagerMatrixComments(entries) {
@@ -1091,6 +1092,8 @@ function setReportDate(nextDate) {
 }
 
 async function saveReport() {
+  if (state.isSavingReport) return;
+
   const context = getOwnerContext();
   const metrics = context.roleMetrics;
   if (!context.employee || metrics.length === 0) {
@@ -1110,6 +1113,8 @@ async function saveReport() {
   }
 
   const dataRows = buildDataRows(state.report, pendingMetrics);
+  state.isSavingReport = true;
+  updateSaveButtons();
 
   try {
     const result = await submitDataRows(dataRows);
@@ -1127,6 +1132,9 @@ async function saveReport() {
   } catch (error) {
     console.warn('Не удалось отправить данные в таблицу.', error);
     elements.saveFeedback.textContent = `Отчёт сохранён локально за ${state.date}, но таблица «Данные» не обновилась. Можно повторить сохранение позже.`;
+  } finally {
+    state.isSavingReport = false;
+    updateSaveButtons();
   }
 }
 
@@ -1238,12 +1246,14 @@ function updateSaveButton(button) {
   const hasMetrics = state.hasSelectedIdentity && Boolean(employee) && metrics.length > 0;
   const pendingMetrics = getPendingFilledMetrics(state.report, metrics);
   const submitted = areAllMetricsSubmitted(state.report, metrics);
-  button.disabled = !hasMetrics || pendingMetrics.length === 0;
-  button.title = !hasMetrics
-    ? 'Данные из таблицы не загружены или нет метрик для выбранного ФИО'
-    : submitted
-      ? 'Все метрики уже сохранены за выбранный день'
-      : pendingMetrics.length > 0 ? '' : 'Заполните хотя бы одну новую метрику — остальные можно дозаполнить позже';
+  button.disabled = state.isSavingReport || !hasMetrics || pendingMetrics.length === 0;
+  button.title = state.isSavingReport
+    ? 'Отчёт сохраняется, подождите завершения'
+    : !hasMetrics
+      ? 'Данные из таблицы не загружены или нет метрик для выбранного ФИО'
+      : submitted
+        ? 'Все метрики уже сохранены за выбранный день'
+        : pendingMetrics.length > 0 ? '' : 'Заполните хотя бы одну новую метрику — остальные можно дозаполнить позже';
   button.setAttribute('aria-disabled', String(button.disabled));
 }
 
