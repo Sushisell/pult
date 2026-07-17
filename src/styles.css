@@ -1575,14 +1575,20 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
 }
 
 .manager-sparkline-labels {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 12px;
-  justify-content: space-between;
+  display: grid;
+  gap: 6px;
   margin-top: -4px;
   color: #838796;
   font-size: 0.72rem;
   font-weight: 850;
+  text-align: center;
+}
+
+.manager-sparkline-labels span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .manager-sparkline-empty {
@@ -1667,4 +1673,28 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
   stroke: #ffffff;
   stroke-width: 3;
   filter: drop-shadow(0 0 5px rgb(239 71 111 / 55%));
+}
+
+.manager-sparkline-point.is-planfact-good circle {
+  stroke: #29a66f;
+}
+
+.manager-sparkline-point.is-planfact-good text {
+  fill: #1d7d53;
+}
+
+.manager-sparkline-point.is-planfact-warning circle {
+  stroke: #f2b705;
+}
+
+.manager-sparkline-point.is-planfact-warning text {
+  fill: #a97800;
+}
+
+.manager-sparkline-point.is-planfact-danger circle {
+  stroke: #ef476f;
+}
+
+.manager-sparkline-point.is-planfact-danger text {
+  fill: #bd254a;
 }
