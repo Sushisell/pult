@@ -1644,6 +1644,20 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
   pointer-events: none;
 }
 
+
+.manager-matrix td:nth-child(2) .manager-dot[data-tooltip]:hover::after,
+.manager-matrix td:nth-child(2) .manager-dot[data-tooltip]:focus-visible::after {
+  left: 0;
+  transform: none;
+}
+
+.manager-matrix td:last-child .manager-dot[data-tooltip]:hover::after,
+.manager-matrix td:last-child .manager-dot[data-tooltip]:focus-visible::after {
+  right: 0;
+  left: auto;
+  transform: none;
+}
+
 .manager-dot[data-tooltip]:hover::before,
 .manager-dot[data-tooltip]:focus-visible::before {
   z-index: 21;
