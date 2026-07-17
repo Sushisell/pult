@@ -294,6 +294,36 @@ describe('daily report storage helpers', () => {
     assert.equal(isReportSubmittedForCategory(report, 'daily'), true);
   });
 
+  it('maps duplicate metric names to the selected owner role', () => {
+    const catalog = createCatalog({
+      infoRows: [
+        { fullName: 'Анна Забота', role: 'Старший оператор заботы' },
+        { fullName: 'Олег КЦ', role: 'Старший оператор КЦ' },
+      ],
+      metricSheets: [{
+        name: 'Операционный',
+        rows: [
+          { frequency: 'ежедневно', metric: 'Вся смена укомплектована и все вышли?', role: 'Старший оператор КЦ' },
+          { frequency: 'ежедневно', metric: 'Вся смена укомплектована и все вышли?', role: 'Старший оператор заботы' },
+        ],
+      }],
+      dataRows: [
+        { date: '2026-07-17', owner: 'Анна Забота', metric: 'Вся смена укомплектована и все вышли?', value: 'Нельзя исправить ошибку', comment: 'Нет линии 12-23' },
+        { date: '2026-07-17', owner: 'Олег КЦ', metric: 'Вся смена укомплектована и все вышли?', value: 'Все ок', comment: '' },
+      ],
+    });
+
+    const reports = buildReportsFromDataRows(catalog.dataRows, catalog.checklist, catalog.infoRows);
+    const careMetric = getMetricsForRole('Старший оператор заботы', catalog.checklist)[0];
+    const callCenterMetric = getMetricsForRole('Старший оператор КЦ', catalog.checklist)[0];
+    const careReport = getReportForDate(reports, '2026-07-17', catalog.checklist, 'Анна Забота');
+    const callCenterReport = getReportForDate(reports, '2026-07-17', catalog.checklist, 'Олег КЦ');
+
+    assert.equal(careReport.rows.find((row) => row.id === careMetric.id).status, 'issue');
+    assert.equal(callCenterReport.rows.find((row) => row.id === callCenterMetric.id).status, 'done');
+    assert.equal(careReport.rows.find((row) => row.id === callCenterMetric.id).status, '');
+  });
+
   it('stores plan/fact metrics as two fields and keeps a combined Data value', () => {
     const catalog = createCatalog({
       infoRows: [{ fullName: 'Мария Реальная', role: 'Продажи' }],
