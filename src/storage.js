@@ -3,6 +3,7 @@ import { CATEGORIES, CHECKLIST, INFO_ROWS, STATUS, findEmployeeByFullName, getMe
 const STORAGE_KEY = 'pult.dailyChecks.v1';
 const REPORT_KEY_SEPARATOR = '::';
 const FILLED_STATUS_VALUES = new Set(['done', 'fixed', 'issue']);
+const COMMENT_MAX_LENGTH = 200;
 
 export function todayISO(date = new Date()) {
   const offset = date.getTimezoneOffset();
@@ -136,7 +137,7 @@ export function buildReportsFromDataRows(dataRows = [], checklist = CHECKLIST) {
     const rows = report.rows.map((row) => {
       if (row.id !== metric.id) return row;
       const value = String(dataRow.value ?? '');
-      const comment = String(dataRow.comment ?? '');
+      const comment = normalizeComment(dataRow.comment);
       const planFact = metric.type === 'planFact' ? getPlanFactFromDataRow(dataRow) : { plan: '', fact: '' };
       return {
         ...row,
@@ -175,7 +176,7 @@ export function buildDataRows(report, metrics = CHECKLIST) {
         value: getStoredValue(row, metric),
         plan: metric?.type === 'planFact' ? String(row.plan ?? '').trim() : '',
         fact: metric?.type === 'planFact' ? String(row.fact ?? '').trim() : '',
-        comment: String(row.comment ?? '').trim(),
+        comment: normalizeComment(row.comment),
       };
     });
 }
@@ -384,6 +385,10 @@ function getMonthlyDeadlineDay(deadline) {
 
 function getStatusLabel(status) {
   return STATUS[status] ?? '';
+}
+
+function normalizeComment(value) {
+  return String(value ?? '').trim().slice(0, COMMENT_MAX_LENGTH);
 }
 
 function getStoredValue(row, metric) {

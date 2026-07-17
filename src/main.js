@@ -25,6 +25,8 @@ import {
   reconcileSubmittedMetricsWithSheetReports,
 } from './storage.js?v=0.1.11';
 
+const COMMENT_MAX_LENGTH = 200;
+
 const state = {
   localReports: loadReports(),
   sheetReports: {},
@@ -443,13 +445,21 @@ function createCommentField(item, row) {
   const textarea = document.createElement('textarea');
   textarea.className = 'metric-comment';
   textarea.placeholder = item.placeholder ?? 'Комментарий к метрике';
-  textarea.value = row.comment;
+  textarea.maxLength = COMMENT_MAX_LENGTH;
+  textarea.value = limitComment(row.comment);
   textarea.disabled = isMetricLocked(item);
+  textarea.setAttribute('aria-label', `Комментарий к метрике, до ${COMMENT_MAX_LENGTH} символов`);
   textarea.addEventListener('input', (event) => {
-    updateRow(item.id, { comment: event.target.value }, { shouldRender: false });
+    const limitedComment = limitComment(event.target.value);
+    if (event.target.value !== limitedComment) event.target.value = limitedComment;
+    updateRow(item.id, { comment: limitedComment }, { shouldRender: false });
     updateSaveButtons();
   });
   return textarea;
+}
+
+function limitComment(value) {
+  return String(value ?? '').slice(0, COMMENT_MAX_LENGTH);
 }
 
 function renderSummary() {
@@ -796,20 +806,22 @@ function createManagerMatrixChartCell(row, periods) {
   const points = periods.map((period) => getManagerNumericPoint(row.byPeriod.get(period.id), row.metric));
   const values = points.map((point) => point.value).filter((value) => Number.isFinite(value));
   const title = values.length > 0
-    ? `Динамика: ${points.map((point) => `${point.label}: ${point.display ?? 'нет данных'}`).join(' · ')}`
+    ? `Динамика: ${points.map((point) => `${point.label}: ${point.display ?? 'нет данных'}${point.comments ? ` (${point.comments})` : ''}`).join(' · ')}`
     : 'Нет числовых данных для диаграммы';
   return `<td class="manager-chart-cell" colspan="${periods.length}">${createManagerSparkline(points, row.metric, title)}</td>`;
 }
 
 function getManagerNumericPoint(cell, metric) {
-  const values = (cell?.entries ?? [])
+  const entries = cell?.entries ?? [];
+  const values = entries
     .map((entry) => parseMetricNumber(entry.row?.value))
     .filter((value) => Number.isFinite(value));
   const value = values.length === 0 ? null : values.reduce((sum, item) => sum + item, 0) / values.length;
   return {
     value,
-    label: cell?.entries?.[0]?.period ? getManagerPeriodShortLabel(cell.entries[0].period) : '',
+    label: entries[0]?.period ? getManagerPeriodShortLabel(entries[0].period) : '',
     display: value === null ? null : formatMetricNumber(value, metric),
+    comments: getManagerMatrixComments(entries),
   };
 }
 
@@ -833,7 +845,7 @@ function createManagerSparkline(points, metric, title) {
       <svg viewBox="0 0 ${width} ${height}" role="img" aria-hidden="true" focusable="false">
         <line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" />
         <polyline points="${line}" />
-        ${coords.filter((point) => point.y !== null).map((point) => `<g class="manager-sparkline-point"><circle cx="${point.x}" cy="${point.y}" r="4"><title>${escapeHtml(point.display)}</title></circle><text x="${point.x}" y="${Math.max(12, point.y - 10)}" text-anchor="middle">${escapeHtml(point.display)}</text></g>`).join('')}
+        ${coords.filter((point) => point.y !== null).map((point) => `<g class="manager-sparkline-point${point.comments ? ' has-comment' : ''}"><circle cx="${point.x}" cy="${point.y}" r="4"><title>${escapeHtml([point.display, point.comments].filter(Boolean).join(' · '))}</title></circle><text x="${point.x}" y="${Math.max(12, point.y - 10)}" text-anchor="middle">${escapeHtml(point.display)}</text></g>`).join('')}
       </svg>
       <div class="manager-sparkline-labels">
         ${points.map((point) => `<span>${escapeHtml(point.label)}: ${escapeHtml(point.display ?? 'нет данных')}</span>`).join('')}
@@ -856,7 +868,21 @@ function formatMetricNumber(value, metric) {
 function createManagerMatrixDotCell(cell) {
   const status = cell?.status ?? 'empty';
   const title = getManagerMatrixTitle(cell);
-  return `<td><span class="manager-dot manager-dot-${status}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"></span></td>`;
+  const comments = getManagerMatrixComments(cell?.entries ?? []);
+  const tooltip = [title, comments].filter(Boolean).join('\n');
+  const commentClass = comments ? ' has-comment' : '';
+  return `<td><span class="manager-dot manager-dot-${status}${commentClass}" title="${escapeHtml(tooltip)}" aria-label="${escapeHtml(tooltip)}" data-tooltip="${escapeHtml(tooltip)}" tabindex="0"></span></td>`;
+}
+
+function getManagerMatrixComments(entries) {
+  return entries
+    .map((entry) => {
+      const comment = String(entry.row?.comment ?? '').trim();
+      if (!comment) return '';
+      return `${entry.teammate.fullName}: ${limitComment(comment)}`;
+    })
+    .filter(Boolean)
+    .join('\n');
 }
 
 function getManagerMatrixTitle(cell) {
