@@ -137,8 +137,10 @@ export function buildReportsFromDataRows(dataRows = [], checklist = CHECKLIST, i
     const rows = report.rows.map((row) => {
       if (row.id !== metric.id) return row;
       const value = String(dataRow.value ?? '');
-      const comment = normalizeComment(dataRow.comment);
       const planFact = metric.type === 'planFact' ? getPlanFactFromDataRow(dataRow) : { plan: '', fact: '' };
+      const comment = metric.type === 'planFact'
+        ? normalizeComment(stripPlanFactCommentPrefix(dataRow.comment, planFact))
+        : normalizeComment(dataRow.comment);
       return {
         ...row,
         value,
@@ -176,7 +178,7 @@ export function buildDataRows(report, metrics = CHECKLIST) {
         value: getStoredValue(row, metric),
         plan: metric?.type === 'planFact' ? String(row.plan ?? '').trim() : '',
         fact: metric?.type === 'planFact' ? String(row.fact ?? '').trim() : '',
-        comment: normalizeComment(row.comment),
+        comment: getStoredComment(row, metric),
       };
     });
 }
@@ -399,9 +401,47 @@ function getStoredValue(row, metric) {
 }
 
 function formatPlanFactValue(row) {
+  const percent = getPlanFactPercent(row.plan, row.fact);
+  return percent === null ? '' : `${formatPercent(percent)}%`;
+}
+
+function getStoredComment(row, metric) {
+  const comment = normalizeComment(row.comment);
+  if (metric?.type !== 'planFact') return comment;
+
+  return normalizeComment([formatPlanFactCommentPrefix(row), comment].filter(Boolean).join('; '));
+}
+
+function formatPlanFactCommentPrefix(row) {
   const plan = String(row.plan ?? '').trim();
   const fact = String(row.fact ?? '').trim();
   return [plan ? `План: ${plan}` : '', fact ? `Факт: ${fact}` : ''].filter(Boolean).join('; ');
+}
+
+function getPlanFactPercent(plan, fact) {
+  const planNumber = parsePlanFactNumber(plan);
+  const factNumber = parsePlanFactNumber(fact);
+  if (planNumber === null || factNumber === null || factNumber === 0) return null;
+  return (planNumber / factNumber) * 100;
+}
+
+function parsePlanFactNumber(value) {
+  const normalized = String(value ?? '').trim().replace(',', '.');
+  if (!normalized) return null;
+  const number = Number(normalized);
+  return Number.isFinite(number) ? number : null;
+}
+
+function formatPercent(value) {
+  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2))).replace('.', ',');
+}
+
+function stripPlanFactCommentPrefix(comment, planFact) {
+  const normalizedComment = String(comment ?? '').trim();
+  const prefix = formatPlanFactCommentPrefix(planFact);
+  if (!prefix || !normalizedComment.startsWith(prefix)) return normalizedComment;
+
+  return normalizedComment.slice(prefix.length).replace(/^\s*[;+—-]?\s*/u, '');
 }
 
 function getPlanFactFromDataRow(dataRow) {
