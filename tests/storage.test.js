@@ -18,6 +18,7 @@ const TEST_METRIC_SHEETS = [{
     { frequency: 'ежедневно', metric: 'Проверка HR', role: 'HR', reportFormat: 'Проверено / не проверено', type: 'checkbox' },
     { frequency: 'еженедельно', metric: 'Еженедельная HR проверка', role: 'HR', reportFormat: 'Комментарий', type: 'checkboxWithText' },
     { frequency: 'ежемесячно', metric: 'Ежемесячная HR проверка', role: 'HR', reportFormat: 'Проверено / не проверено', type: 'checkbox' },
+    { frequency: 'ежеквартально', metric: 'Ежеквартальная HR проверка', role: 'HR', reportFormat: 'Комментарий', type: 'checkboxWithText' },
   ],
 }];
 
@@ -64,24 +65,29 @@ describe('daily report storage helpers', () => {
     assert.equal(getReportForDate(reports, '2026-06-01', TEST_CHECKLIST, 'Тестовый Сотрудник Франчайзинг').owner, 'Тестовый Сотрудник Франчайзинг');
   });
 
-  it('hides already filled weekly and monthly metrics in the same period', () => {
+  it('hides already filled weekly, monthly and quarterly metrics in the same period', () => {
     const report = createEmptyReport('2026-06-01', TEST_CHECKLIST, 'Тестовый Сотрудник HR');
     const hrMetrics = getMetricsForRole('HR', TEST_CHECKLIST);
     const weekly = hrMetrics.find((metric) => metric.category === 'weekly');
     const monthly = hrMetrics.find((metric) => metric.category === 'monthly');
+    const quarterly = hrMetrics.find((metric) => metric.category === 'quarterly');
     report.rows.find((row) => row.id === weekly.id).status = 'done';
     report.rows.find((row) => row.id === monthly.id).status = 'done';
+    report.rows.find((row) => row.id === quarterly.id).status = 'done';
     const reports = upsertReport({}, report);
 
     const dueSameWeek = getDueMetricsForDate(reports, '2026-06-03', 'Тестовый Сотрудник HR', hrMetrics);
     const dueNextWeekSameMonth = getDueMetricsForDate(reports, '2026-06-08', 'Тестовый Сотрудник HR', hrMetrics);
-    const dueNextMonth = getDueMetricsForDate(reports, '2026-07-01', 'Тестовый Сотрудник HR', hrMetrics);
+    const dueNextMonthSameQuarter = getDueMetricsForDate(reports, '2026-04-01', 'Тестовый Сотрудник HR', hrMetrics);
+    const dueNextQuarter = getDueMetricsForDate(reports, '2026-07-01', 'Тестовый Сотрудник HR', hrMetrics);
 
     assert.equal(dueSameWeek.some((metric) => metric.id === weekly.id), false);
     assert.equal(dueSameWeek.some((metric) => metric.id === monthly.id), false);
+    assert.equal(dueSameWeek.some((metric) => metric.id === quarterly.id), false);
     assert.equal(dueNextWeekSameMonth.some((metric) => metric.id === weekly.id), true);
     assert.equal(dueNextWeekSameMonth.some((metric) => metric.id === monthly.id), false);
-    assert.equal(dueNextMonth.some((metric) => metric.id === monthly.id), true);
+    assert.equal(dueNextMonthSameQuarter.some((metric) => metric.id === quarterly.id), false);
+    assert.equal(dueNextQuarter.some((metric) => metric.id === quarterly.id), true);
   });
 
   it('shows monthly metrics only during the week before their monthly deadline', () => {
@@ -171,7 +177,7 @@ describe('daily report storage helpers', () => {
     const groups = groupMetricsByFrequency(metrics);
 
     assert.equal(employee.role, 'HR');
-    assert.deepEqual(groups.map((group) => group.id), ['daily', 'weekly', 'monthly']);
+    assert.deepEqual(groups.map((group) => group.id), ['daily', 'weekly', 'monthly', 'quarterly']);
     assert.ok(groups[0].items.every((item) => item.role === 'HR'));
     assert.ok(groups[0].items.every((item) => item.category === 'daily'));
   });
@@ -332,7 +338,7 @@ describe('daily report storage helpers', () => {
         rows: [{ frequency: 'ежедневно', metric: 'Выручка план-факт', role: 'Продажи', classification: 'План факт' }],
       }],
       dataRows: [
-        { date: '2026-06-01', owner: 'Мария Реальная', metric: 'Выручка план-факт', value: '105,26%', comment: 'План: 100; Факт: 95; Почти', plan: '100', fact: '95' },
+        { date: '2026-06-01', owner: 'Мария Реальная', metric: 'Выручка план-факт', value: '95%', comment: 'План: 100; Факт: 95; Почти', plan: '100', fact: '95' },
       ],
     });
     const reports = buildReportsFromDataRows(catalog.dataRows, catalog.checklist);
@@ -395,7 +401,7 @@ describe('daily report storage helpers', () => {
     assert.equal(merged.rows.find((row) => row.id === TEST_CHECKLIST[1].id).comment, 'Дозаполнили позже');
     assert.deepEqual(
       getDueMetricsForDate(upsertReport({}, merged), '2026-06-01', 'Тестовый Сотрудник HR', TEST_CHECKLIST, { hideSubmittedForDate: true }).map((metric) => metric.id),
-      [TEST_CHECKLIST[2].id],
+      [TEST_CHECKLIST[2].id, TEST_CHECKLIST[3].id],
     );
   });
 

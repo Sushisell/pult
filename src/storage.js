@@ -302,7 +302,7 @@ export function shouldShowMetricForDate(reports, date, owner, metric, { hideSubm
     return !Object.values(reports).some((report) => report.date === date && reportAlreadyHasMetric(report));
   }
 
-  const period = metric.category === 'weekly' ? getWeekPeriod(date) : getMonthPeriod(date);
+  const period = getMetricPeriod(metric.category, date);
   if (!period) return true;
 
   return !Object.values(reports).some((report) => (
@@ -421,8 +421,8 @@ function formatPlanFactCommentPrefix(row) {
 function getPlanFactPercent(plan, fact) {
   const planNumber = parsePlanFactNumber(plan);
   const factNumber = parsePlanFactNumber(fact);
-  if (planNumber === null || factNumber === null || factNumber === 0) return null;
-  return (planNumber / factNumber) * 100;
+  if (planNumber === null || factNumber === null || planNumber === 0) return null;
+  return (factNumber / planNumber) * 100;
 }
 
 function parsePlanFactNumber(value) {
@@ -501,6 +501,12 @@ function getLegacyReport(reports, date, owner) {
   return report;
 }
 
+function getMetricPeriod(category, date) {
+  if (category === 'weekly') return getWeekPeriod(date);
+  if (category === 'quarterly') return getQuarterPeriod(date);
+  return getMonthPeriod(date);
+}
+
 function getWeekPeriod(date) {
   const parsed = parseISODate(date);
   if (!parsed) return null;
@@ -517,6 +523,15 @@ function getMonthPeriod(date) {
   if (!parsed) return null;
   const start = new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), 1));
   const end = new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth() + 1, 0));
+  return { start: toISODate(start), end: toISODate(end) };
+}
+
+function getQuarterPeriod(date) {
+  const parsed = parseISODate(date);
+  if (!parsed) return null;
+  const quarterStartMonth = Math.floor(parsed.getUTCMonth() / 3) * 3;
+  const start = new Date(Date.UTC(parsed.getUTCFullYear(), quarterStartMonth, 1));
+  const end = new Date(Date.UTC(parsed.getUTCFullYear(), quarterStartMonth + 3, 0));
   return { start: toISODate(start), end: toISODate(end) };
 }
 

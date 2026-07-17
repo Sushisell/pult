@@ -586,7 +586,7 @@ function getDashboardPeriods(categoryId, date) {
     });
   }
 
-  const period = getMonthPeriod(date);
+  const period = categoryId === 'quarterly' ? getQuarterPeriod(date) : getMonthPeriod(date);
   return [{ ...period, id: period.start, label: `${formatRuDate(period.start)}–${formatRuDate(period.end)}` }];
 }
 
@@ -623,6 +623,14 @@ function getMonthPeriod(date) {
   const [year, month] = String(date).split('-').map(Number);
   const start = new Date(Date.UTC(year, month - 1, 1));
   const end = new Date(Date.UTC(year, month, 0));
+  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+}
+
+function getQuarterPeriod(date) {
+  const [year, month] = String(date).split('-').map(Number);
+  const quarterStartMonth = Math.floor((month - 1) / 3) * 3;
+  const start = new Date(Date.UTC(year, quarterStartMonth, 1));
+  const end = new Date(Date.UTC(year, quarterStartMonth + 3, 0));
   return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
 }
 
@@ -753,7 +761,7 @@ function createManagerFrequencySection(group) {
             <tr>
               <th scope="row">${escapeHtml(row.metric.metric)}</th>
               ${isNumericMetric(row.metric)
-                ? createManagerMatrixChartCell(row, periods)
+                ? periods.map((period) => createManagerMatrixNumericCell(row.byPeriod.get(period.id), row.metric, period)).join('')
                 : periods.map((period) => createManagerMatrixDotCell(row.byPeriod.get(period.id))).join('')}
             </tr>
           `).join('')}
@@ -822,6 +830,19 @@ function createManagerMatrixCellState(entries) {
 }
 
 
+function createManagerMatrixNumericCell(cell, metric, period) {
+  const point = getManagerNumericPoint(cell, metric, period);
+  const title = point.display
+    ? `${point.label}: ${point.display}${point.comments ? ` (${point.comments})` : ''}`
+    : `${point.label}: нет данных${point.comments ? ` (${point.comments})` : ''}`;
+  const healthClass = metric?.type === 'planFact' ? getPlanFactHealthClass(point.value) : '';
+  const value = point.display ?? 'нет данных';
+  return `<td class="manager-numeric-cell${point.display ? ' has-value' : ' is-empty'}${healthClass}" title="${escapeHtml(title)}">
+    <span class="manager-numeric-value">${escapeHtml(value)}</span>
+    <span class="manager-numeric-dot" aria-hidden="true"></span>
+  </td>`;
+}
+
 function createManagerMatrixChartCell(row, periods) {
   const points = periods.map((period) => getManagerNumericPoint(row.byPeriod.get(period.id), row.metric, period));
   const values = points.map((point) => point.value).filter((value) => Number.isFinite(value));
@@ -888,8 +909,8 @@ function parseMetricNumber(value) {
 function getPlanFactPercent(plan, fact) {
   const planNumber = parseMetricNumber(plan);
   const factNumber = parseMetricNumber(fact);
-  if (!Number.isFinite(planNumber) || !Number.isFinite(factNumber) || factNumber === 0) return NaN;
-  return (planNumber / factNumber) * 100;
+  if (!Number.isFinite(planNumber) || !Number.isFinite(factNumber) || planNumber === 0) return NaN;
+  return (factNumber / planNumber) * 100;
 }
 
 function getPlanFactHealthClass(value) {
