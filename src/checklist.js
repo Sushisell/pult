@@ -76,38 +76,52 @@ export function getEmployeesWithSharedRole(employee, infoRows = INFO_ROWS) {
   return infoRows.filter((teammate) => employeesShareRole(employee, teammate));
 }
 
-// Возвращает всю команду руководителя, включая сотрудников через несколько уровней
-// подчинения. Это позволяет верхнему руководителю видеть здоровье метрик не только
-// прямых подчинённых, но и их команд.
-export function getManagedEmployees(manager, infoRows = INFO_ROWS, checklist = CHECKLIST) {
+// Строит ветку оргструктуры только по колонкам «Роль» и «Руководитель» листа
+// «Инфо». Колонка руководителя в строках метрик описывает саму метрику, а не
+// подчинение сотрудника, поэтому в построении команды не участвует.
+//
+// В organizationRows могут быть строки с незаполненным ФИО: такая строка всё
+// равно продолжает цепочку ролей и позволяет руководителю увидеть сотрудников
+// ниже временно вакантной руководящей позиции.
+export function getManagedOrganizationRows(manager, organizationRows = INFO_ROWS) {
   if (!manager) return [];
 
-  const managedEmployees = [];
-  const visitedNames = new Set([normalizeText(manager.fullName)]);
-  const managersToProcess = [manager];
+  const managerName = normalizeText(manager.fullName);
+  const managedRows = [];
+  const seenRows = new Set();
+  const processedRoles = new Set();
+  const rolesToProcess = splitRoleAliases(manager.role);
 
-  while (managersToProcess.length > 0) {
-    const currentManager = managersToProcess.shift();
-    const currentManagerRoles = splitRoleAliases(currentManager.role);
+  while (rolesToProcess.length > 0) {
+    const currentRole = rolesToProcess.shift();
+    if (processedRoles.has(currentRole)) continue;
+    processedRoles.add(currentRole);
 
-    const directReports = infoRows.filter((employee) => {
-      const employeeName = normalizeText(employee.fullName);
-      if (!employeeName || visitedNames.has(employeeName)) return false;
+    for (const row of organizationRows) {
+      if (!roleMatches([currentRole], row.managerRole) || seenRows.has(row)) continue;
+      seenRows.add(row);
 
-      const employeeMetrics = getMetricsForRole(employee.role, checklist);
-      const metricReportsToManager = employeeMetrics.some((metric) => roleMatches(currentManagerRoles, metric.managerRole));
-      const employeeReportsToManager = roleMatches(currentManagerRoles, employee.managerRole);
-      return metricReportsToManager || employeeReportsToManager;
-    });
-
-    for (const directReport of directReports) {
-      visitedNames.add(normalizeText(directReport.fullName));
-      managedEmployees.push(directReport);
-      managersToProcess.push(directReport);
+      // The selected manager is already displayed separately. Do retain their
+      // roles in the traversal so malformed circular rows cannot cut a branch.
+      if (!managerName || normalizeText(row.fullName) !== managerName) managedRows.push(row);
+      rolesToProcess.push(...splitRoleAliases(row.role));
     }
   }
 
-  return managedEmployees;
+  return managedRows;
+}
+
+// Возвращает сотрудников из всей ветки руководителя, включая несколько уровней
+// подчинения. Один сотрудник может занимать несколько строк/ролей, поэтому
+// результат дедуплицируется по ФИО.
+export function getManagedEmployees(manager, organizationRows = INFO_ROWS) {
+  const seenNames = new Set();
+  return getManagedOrganizationRows(manager, organizationRows).filter((row) => {
+    const name = normalizeText(row.fullName);
+    if (!name || seenNames.has(name)) return false;
+    seenNames.add(name);
+    return true;
+  });
 }
 
 
