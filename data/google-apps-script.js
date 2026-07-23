@@ -33,7 +33,8 @@ const CONFIG = {
     deadlineColumn: 7,
     classificationColumn: null,
     typeColumn: 9,
-    managerRoleColumn: null,
+    // J связывает метрику с руководителем, в чьём дашборде она должна отображаться.
+    managerRoleColumn: 10,
     // Необязательные колонки. Оставьте null, если их нет в таблице.
     reportFormatColumn: null,
     placeholderColumn: null,

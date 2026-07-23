@@ -546,4 +546,10 @@ describe('application version', () => {
     assert.match(indexHtml, /class="is-loading"/);
     assert.match(indexHtml, /id="loading-screen"/);
   });
+
+  it('maps the metric dashboard manager role from column J', async () => {
+    const appsScript = await readFile(new URL('../data/google-apps-script.js', import.meta.url), 'utf8');
+
+    assert.match(appsScript, /managerRoleColumn:\s*10/);
+  });
 });

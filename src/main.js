@@ -1,6 +1,6 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.12';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.12';
-import { APP_VERSION } from './version.js?v=0.1.12';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.13';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.13';
+import { APP_VERSION } from './version.js?v=0.1.13';
 import {
   buildCsv,
   buildDataRows,
@@ -23,7 +23,7 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.12';
+} from './storage.js?v=0.1.13';
 
 const COMMENT_MAX_LENGTH = 200;
 const URL_STATE_KEYS = ['date', 'department', 'owner', 'view'];
