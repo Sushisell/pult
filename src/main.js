@@ -1,6 +1,6 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.14';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.14';
-import { APP_VERSION } from './version.js?v=0.1.14';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.15';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.15';
+import { APP_VERSION } from './version.js?v=0.1.15';
 import {
   buildCsv,
   buildDataRows,
@@ -23,7 +23,7 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.14';
+} from './storage.js?v=0.1.15';
 
 const COMMENT_MAX_LENGTH = 200;
 const URL_STATE_KEYS = ['date', 'department', 'owner', 'view'];
@@ -736,7 +736,7 @@ function createManagerFrequencySection(group) {
   section.className = `manager-frequency-card manager-frequency-card-${group.id}`;
   const totals = getDashboardTotals(group.states);
   const periods = getManagerSectionPeriods(group.states);
-  const subdepartments = getDashboardSubdepartmentGroups(group.states);
+  const subdepartments = getDashboardSubdepartmentGroups(group.states, getDashboardHeadcountRows());
   const metricCount = new Set(group.states.map((entry) => entry.metric.id)).size;
   const metricLabel = metricCount === 1 ? 'метрика' : metricCount > 1 && metricCount < 5 ? 'метрики' : 'метрик';
   const title = group.id === 'daily' ? 'Ежедневные проверки' : `${group.label} проверки`;
@@ -761,14 +761,21 @@ function createManagerFrequencySection(group) {
   return section;
 }
 
-function getDashboardSubdepartmentGroups(states) {
+function getDashboardSubdepartmentGroups(states, headcountRows = []) {
   const groups = new Map();
   for (const entry of states) {
     const name = entry.teammate.subdepartment || 'Без подотдела';
-    const current = groups.get(name) ?? { name, states: [], employees: new Set() };
+    const current = groups.get(name) ?? { name, states: [], employees: new Set(), headcount: 0 };
     current.states.push(entry);
     current.employees.add(entry.teammate.fullName);
     groups.set(name, current);
+  }
+
+  for (const employee of headcountRows) {
+    const name = employee.subdepartment || 'Без подотдела';
+    const current = groups.get(name);
+    if (!current) continue;
+    current.headcount += 1;
   }
   return [...groups.values()].sort((first, second) => first.name.localeCompare(second.name, 'ru'));
 }
@@ -776,12 +783,13 @@ function getDashboardSubdepartmentGroups(states) {
 function createManagerSubdepartmentBlock(subdepartment, periods) {
   const rows = getManagerMetricMatrixRows(subdepartment.states, periods);
   const totals = getDashboardTotals(subdepartment.states);
-  const employeeLabel = subdepartment.employees.size === 1 ? 'сотрудник' : subdepartment.employees.size < 5 ? 'сотрудника' : 'сотрудников';
+  const employeeCount = subdepartment.headcount || subdepartment.employees.size;
+  const employeeLabel = employeeCount === 1 ? 'сотрудник' : employeeCount < 5 ? 'сотрудника' : 'сотрудников';
   return `
     <section class="manager-subdepartment">
       <div class="manager-subdepartment-header">
         <div><span>Подотдел</span><h4>${escapeHtml(subdepartment.name)}</h4></div>
-        <div><b>${totals.health}%</b><small>${subdepartment.employees.size} ${employeeLabel}</small></div>
+        <div><b>${totals.health}%</b><small>${employeeCount} ${employeeLabel}</small></div>
       </div>
       <div class="manager-matrix-wrap">
         <table class="manager-matrix">
@@ -1108,6 +1116,36 @@ function getManagerMetricDetail(row, metric, filled) {
 
 function getDashboardEmployees(employee) {
   return [employee, ...getManagedEmployees(employee, state.catalog.infoRows, state.catalog.checklist)];
+}
+
+function getDashboardHeadcountRows() {
+  const selectedEmployee = findSelectedEmployee();
+  if (!selectedEmployee) return [];
+
+  const organizationRows = state.catalog.headcountRows ?? state.catalog.infoRows;
+  const teamRows = [selectedEmployee];
+  const getRowKey = (row) => [row.department, row.subdepartment, row.fullName, row.role, row.managerRole]
+    .map(normalizeText)
+    .join('||');
+  const seenRows = new Set([getRowKey(selectedEmployee)]);
+  const managerRoles = new Set([normalizeText(selectedEmployee.role)]);
+
+  for (let index = 0; index < teamRows.length; index += 1) {
+    const currentRoles = String(teamRows[index].role ?? '')
+      .split(/[,;/|]+|\s+и\s+|\s+или\s+/u)
+      .map(normalizeText)
+      .filter(Boolean);
+    for (const role of currentRoles) managerRoles.add(role);
+
+    for (const row of organizationRows) {
+      const key = getRowKey(row);
+      if (seenRows.has(key) || !managerRoles.has(normalizeText(row.managerRole))) continue;
+      seenRows.add(key);
+      teamRows.push(row);
+    }
+  }
+
+  return teamRows;
 }
 
 function normalizeText(value) {

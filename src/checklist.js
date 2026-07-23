@@ -27,6 +27,9 @@ export const STATUS = {
 export function createCatalog({ infoRows = INFO_ROWS, metricSheets = METRIC_SHEETS, dataRows = [] } = {}) {
   return {
     infoRows: normalizeInfoRows(infoRows),
+    // Keep role-only rows as well: they represent an occupied or temporarily
+    // unavailable position and must be included in the dashboard headcount.
+    headcountRows: normalizeHeadcountRows(infoRows),
     metricSheets: normalizeMetricSheets(metricSheets),
     checklist: createChecklist(metricSheets),
     dataRows: normalizeDataRows(dataRows),
@@ -121,7 +124,30 @@ function splitRoleAliases(role) {
 }
 
 function normalizeInfoRows(infoRows) {
-  const rows = infoRows
+  const rows = normalizeOrganizationRows(infoRows)
+    .filter((row) => row.fullName);
+
+  return mergeInfoRowsByFullName(rows);
+}
+
+function normalizeHeadcountRows(infoRows) {
+  const rows = normalizeOrganizationRows(infoRows);
+  const namedRows = mergeInfoRowsByFullName(rows.filter((row) => row.fullName));
+  const roleOnlyRows = rows.filter((row) => !row.fullName);
+  const seenRows = new Set();
+
+  return [...namedRows, ...roleOnlyRows].filter((row) => {
+    const key = [row.department, row.subdepartment, row.fullName, row.role, row.managerRole]
+      .map(normalizeText)
+      .join('||');
+    if (seenRows.has(key)) return false;
+    seenRows.add(key);
+    return true;
+  });
+}
+
+function normalizeOrganizationRows(infoRows) {
+  return infoRows
     .map((row) => ({
       department: String(row.department ?? row['Отдел'] ?? '').trim(),
       subdepartment: String(row.subdepartment ?? row.subDepartment ?? row['Подотдел'] ?? '').trim(),
@@ -129,9 +155,7 @@ function normalizeInfoRows(infoRows) {
       role: String(row.role ?? row['Роль'] ?? '').trim(),
       managerRole: String(row.managerRole ?? row.manager ?? row['Роль руководителя'] ?? '').trim(),
     }))
-    .filter((row) => row.fullName && row.role);
-
-  return mergeInfoRowsByFullName(rows);
+    .filter((row) => row.role);
 }
 
 function mergeInfoRowsByFullName(rows) {
