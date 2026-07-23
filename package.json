@@ -1,6 +1,6 @@
 {
   "name": "team-control-panel",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "private": true,
   "description": "Общая страница «Пульт управления Сушиселл» с вкладками HR, франчайзинга и маркетинга.",
   "type": "module",

@@ -241,7 +241,7 @@ describe('daily report storage helpers', () => {
 
   it('builds a catalog from external workbook data', () => {
     const catalog = createCatalog({
-      infoRows: [{ fullName: 'Реальный Сотрудник', role: 'Операции', managerRole: 'Директор' }],
+      infoRows: [{ department: 'ОКС', subdepartment: 'Забота', fullName: 'Реальный Сотрудник', role: 'Операции', managerRole: 'Директор' }],
       metricSheets: [{
         name: 'Операции',
         rows: [
@@ -252,6 +252,7 @@ describe('daily report storage helpers', () => {
     });
 
     assert.equal(catalog.infoRows[0].fullName, 'Реальный Сотрудник');
+    assert.equal(catalog.infoRows[0].subdepartment, 'Забота');
     assert.equal(catalog.infoRows[0].managerRole, 'Директор');
     assert.equal(catalog.checklist.length, 2);
     assert.equal(catalog.checklist[0].description, 'Сверить все открытые смены');
@@ -263,6 +264,20 @@ describe('daily report storage helpers', () => {
     assert.equal(createCatalog({ metricSheets: [{ name: 'Типы', rows: [{ frequency: 'ежедневно', metric: 'План продаж', role: 'Операции', classification: 'План факт' }] }] }).checklist[0].type, 'planFact');
     assert.equal(createCatalog({ metricSheets: [{ name: 'Типы', rows: [{ frequency: 'ежедневно', metric: 'План/факт из I', role: 'Операции', 'Тип задания': 'План / факт' }] }] }).checklist[0].type, 'planFact');
     assert.deepEqual(groupMetricsByFrequency(catalog.checklist).map((group) => group.id), ['daily', 'monthly']);
+  });
+
+  it('keeps the Info subdepartment for hierarchical dashboard grouping', () => {
+    const catalog = createCatalog({
+      infoRows: [{ 'Отдел': 'ОКС', 'Подотдел': 'Колл-центр', 'ФИО': 'Тест 1', 'Роль': 'Оператор' }],
+    });
+
+    assert.deepEqual(catalog.infoRows, [{
+      department: 'ОКС',
+      subdepartment: 'Колл-центр',
+      fullName: 'Тест 1',
+      role: 'Оператор',
+      managerRole: '',
+    }]);
   });
 
   it('drops stale local submitted flags that are absent from the Data sheet', () => {

@@ -1,4 +1,4 @@
-import { CATEGORIES, CHECKLIST, INFO_ROWS, STATUS, findEmployeeByFullName, getMetricsForRole } from './checklist.js?v=0.1.11';
+import { CATEGORIES, CHECKLIST, INFO_ROWS, STATUS, findEmployeeByFullName, getMetricsForRole } from './checklist.js?v=0.1.12';
 
 const STORAGE_KEY = 'pult.dailyChecks.v1';
 const REPORT_KEY_SEPARATOR = '::';
