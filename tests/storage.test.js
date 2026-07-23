@@ -171,6 +171,47 @@ describe('daily report storage helpers', () => {
     assert.equal(dueMetrics.some((metric) => metric.id === daily.id), false);
   });
 
+  it('combines metrics completed by different employees in the same position', () => {
+    const catalog = createCatalog({
+      infoRows: [
+        { department: 'Продажи', fullName: 'Первый менеджер', role: 'Менеджер продаж' },
+        { department: 'Продажи', fullName: 'Второй менеджер', role: 'Менеджер продаж' },
+      ],
+      metricSheets: [{
+        name: 'Продажи',
+        rows: [
+          { frequency: 'ежедневно', metric: 'Первый показатель', role: 'Менеджер продаж' },
+          { frequency: 'ежедневно', metric: 'Второй показатель', role: 'Менеджер продаж' },
+        ],
+      }],
+    });
+    const [firstMetric, secondMetric] = catalog.checklist;
+    const reports = {
+      first: {
+        date: '2026-06-01',
+        owner: 'Первый менеджер',
+        rows: [{ id: firstMetric.id, status: 'done', value: '', comment: '' }],
+        submittedMetricIds: { [firstMetric.id]: true },
+      },
+      second: {
+        date: '2026-06-01',
+        owner: 'Второй менеджер',
+        rows: [{ id: secondMetric.id, status: 'done', value: '', comment: '' }],
+        submittedMetricIds: { [secondMetric.id]: true },
+      },
+    };
+
+    const dueMetrics = getDueMetricsForDate(
+      reports,
+      '2026-06-01',
+      'Первый менеджер',
+      catalog.checklist,
+      { hideSubmittedForDate: true, sharedOwners: ['Первый менеджер', 'Второй менеджер'] },
+    );
+
+    assert.deepEqual(dueMetrics, []);
+  });
+
   it('finds a role by FIO on Info and groups matching metrics by frequency', () => {
     const employee = findEmployeeByFullName('Тестовый Сотрудник HR', TEST_CATALOG.infoRows);
     const metrics = getMetricsForRole(employee.role, TEST_CATALOG.checklist);
