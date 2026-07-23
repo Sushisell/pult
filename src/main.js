@@ -1,6 +1,6 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.11';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.11';
-import { APP_VERSION } from './version.js?v=0.1.11';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.12';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.12';
+import { APP_VERSION } from './version.js?v=0.1.12';
 import {
   buildCsv,
   buildDataRows,
@@ -23,7 +23,7 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.11';
+} from './storage.js?v=0.1.12';
 
 const COMMENT_MAX_LENGTH = 200;
 const URL_STATE_KEYS = ['date', 'department', 'owner', 'view'];
@@ -736,12 +736,13 @@ function createManagerFrequencySection(group) {
   section.className = `manager-frequency-card manager-frequency-card-${group.id}`;
   const totals = getDashboardTotals(group.states);
   const periods = getManagerSectionPeriods(group.states);
-  const rows = getManagerMetricMatrixRows(group.states, periods);
-  const metricLabel = rows.length === 1 ? 'метрика' : rows.length > 1 && rows.length < 5 ? 'метрики' : 'метрик';
+  const subdepartments = getDashboardSubdepartmentGroups(group.states);
+  const metricCount = new Set(group.states.map((entry) => entry.metric.id)).size;
+  const metricLabel = metricCount === 1 ? 'метрика' : metricCount > 1 && metricCount < 5 ? 'метрики' : 'метрик';
   const title = group.id === 'daily' ? 'Ежедневные проверки' : `${group.label} проверки`;
   const subtitle = group.id === 'daily'
-    ? `${rows.length} ${metricLabel} · последние 5 дней до выбранной даты включительно`
-    : `${rows.length} ${metricLabel} · ${periods.length} периодов · статусы и числовая динамика по таблице`;
+    ? `${metricCount} ${metricLabel} · последние 5 дней до выбранной даты включительно`
+    : `${metricCount} ${metricLabel} · ${periods.length} периодов · статусы и числовая динамика по таблице`;
 
   section.innerHTML = `
     <div class="manager-card-title manager-card-title-rich">
@@ -752,29 +753,49 @@ function createManagerFrequencySection(group) {
       <b>${totals.health}%</b>
     </div>
     <p class="manager-card-subtitle">${escapeHtml(subtitle)}</p>
-    <div class="manager-matrix-wrap">
-      <table class="manager-matrix">
-        <thead>
-          <tr>
-            <th scope="col">Метрика</th>
-            ${periods.map((period) => `<th scope="col">${escapeHtml(period.shortLabel)}</th>`).join('')}
-          </tr>
-        </thead>
-        <tbody>
-          ${rows.map((row) => `
-            <tr>
-              <th scope="row">${escapeHtml(row.metric.metric)}</th>
-              ${isNumericMetric(row.metric)
-                ? createManagerMatrixChartCell(row, periods)
-                : periods.map((period) => createManagerMatrixDotCell(row.byPeriod.get(period.id))).join('')}
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
+    <div class="manager-subdepartment-list">
+      ${subdepartments.map((subdepartment) => createManagerSubdepartmentBlock(subdepartment, periods)).join('')}
     </div>
     <div class="manager-progress" aria-label="Здоровье ${escapeHtml(group.label.toLowerCase())}: ${totals.health}%"><span style="width:${totals.health}%"></span></div>
   `;
   return section;
+}
+
+function getDashboardSubdepartmentGroups(states) {
+  const groups = new Map();
+  for (const entry of states) {
+    const name = entry.teammate.subdepartment || 'Без подотдела';
+    const current = groups.get(name) ?? { name, states: [], employees: new Set() };
+    current.states.push(entry);
+    current.employees.add(entry.teammate.fullName);
+    groups.set(name, current);
+  }
+  return [...groups.values()].sort((first, second) => first.name.localeCompare(second.name, 'ru'));
+}
+
+function createManagerSubdepartmentBlock(subdepartment, periods) {
+  const rows = getManagerMetricMatrixRows(subdepartment.states, periods);
+  const totals = getDashboardTotals(subdepartment.states);
+  const employeeLabel = subdepartment.employees.size === 1 ? 'сотрудник' : subdepartment.employees.size < 5 ? 'сотрудника' : 'сотрудников';
+  return `
+    <section class="manager-subdepartment">
+      <div class="manager-subdepartment-header">
+        <div><span>Подотдел</span><h4>${escapeHtml(subdepartment.name)}</h4></div>
+        <div><b>${totals.health}%</b><small>${subdepartment.employees.size} ${employeeLabel}</small></div>
+      </div>
+      <div class="manager-matrix-wrap">
+        <table class="manager-matrix">
+          <thead><tr><th scope="col">Метрика</th>${periods.map((period) => `<th scope="col">${escapeHtml(period.shortLabel)}</th>`).join('')}</tr></thead>
+          <tbody>${rows.map((row) => `
+            <tr>
+              <th scope="row">${escapeHtml(row.metric.metric)}</th>
+              ${isNumericMetric(row.metric) ? createManagerMatrixChartCell(row, periods) : periods.map((period) => createManagerMatrixDotCell(row.byPeriod.get(period.id))).join('')}
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="manager-progress" aria-label="Здоровье подотдела ${escapeHtml(subdepartment.name)}: ${totals.health}%"><span style="width:${totals.health}%"></span></div>
+    </section>`;
 }
 
 function getManagerSectionPeriods(states) {

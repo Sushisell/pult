@@ -1662,6 +1662,74 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
   transform: none;
 }
 
+.manager-subdepartment-list {
+  display: grid;
+  gap: 18px;
+}
+
+.manager-subdepartment {
+  overflow: hidden;
+  border: 1px solid #e7eaf1;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.manager-subdepartment-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #edf0f5;
+  background: linear-gradient(90deg, #fff5f7, #ffffff);
+}
+
+.manager-subdepartment-header span,
+.manager-subdepartment-header small {
+  display: block;
+  color: #838796;
+  font-size: 0.7rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.manager-subdepartment-header h4 {
+  margin: 3px 0 0;
+  color: #252737;
+  font-size: 1rem;
+}
+
+.manager-subdepartment-header > div:last-child {
+  min-width: 76px;
+  text-align: right;
+}
+
+.manager-subdepartment-header b {
+  display: block;
+  color: #ef476f;
+  font-size: 1.15rem;
+}
+
+.manager-subdepartment .manager-matrix-wrap {
+  border: 0;
+  border-radius: 0;
+}
+
+.manager-subdepartment .manager-progress {
+  margin: 0 18px 16px;
+}
+
+@media (max-width: 560px) {
+  .manager-subdepartment-header {
+    padding: 12px 14px;
+  }
+
+  .manager-subdepartment .manager-progress {
+    margin: 0 14px 14px;
+  }
+}
+
 .manager-matrix td:last-child .manager-dot[data-tooltip]:hover::after,
 .manager-matrix td:last-child .manager-dot[data-tooltip]:focus-visible::after {
   right: 0;
