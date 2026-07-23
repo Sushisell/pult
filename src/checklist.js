@@ -73,6 +73,40 @@ export function getEmployeesWithSharedRole(employee, infoRows = INFO_ROWS) {
   return infoRows.filter((teammate) => employeesShareRole(employee, teammate));
 }
 
+// Возвращает всю команду руководителя, включая сотрудников через несколько уровней
+// подчинения. Это позволяет верхнему руководителю видеть здоровье метрик не только
+// прямых подчинённых, но и их команд.
+export function getManagedEmployees(manager, infoRows = INFO_ROWS, checklist = CHECKLIST) {
+  if (!manager) return [];
+
+  const managedEmployees = [];
+  const visitedNames = new Set([normalizeText(manager.fullName)]);
+  const managersToProcess = [manager];
+
+  while (managersToProcess.length > 0) {
+    const currentManager = managersToProcess.shift();
+    const currentManagerRoles = splitRoleAliases(currentManager.role);
+
+    const directReports = infoRows.filter((employee) => {
+      const employeeName = normalizeText(employee.fullName);
+      if (!employeeName || visitedNames.has(employeeName)) return false;
+
+      const employeeMetrics = getMetricsForRole(employee.role, checklist);
+      const metricReportsToManager = employeeMetrics.some((metric) => roleMatches(currentManagerRoles, metric.managerRole));
+      const employeeReportsToManager = roleMatches(currentManagerRoles, employee.managerRole);
+      return metricReportsToManager || employeeReportsToManager;
+    });
+
+    for (const directReport of directReports) {
+      visitedNames.add(normalizeText(directReport.fullName));
+      managedEmployees.push(directReport);
+      managersToProcess.push(directReport);
+    }
+  }
+
+  return managedEmployees;
+}
+
 
 function roleMatches(employeeRoles, metricRole) {
   const metricRoles = splitRoleAliases(metricRole);

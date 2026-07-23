@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { loadCatalog, submitDataRows } from '../src/data-source.js';
 import { areAllMetricsSubmitted, buildCsv, buildDataRows, buildReportsFromDataRows, createEmptyReport, getCompletion, getDueMetricsForDate, getPendingFilledMetrics, getReportForDate, isMetricSubmitted, isReportSubmittedForCategory, makeReportKey, markReportMetricsSubmitted, markReportSubmittedForCategory, mergeReportFilledRows, reconcileSubmittedMetricsWithSheetReports, upsertReport } from '../src/storage.js';
-import { CHECKLIST, createCatalog, createChecklist, findEmployeeByFullName, getEmployeesWithSharedRole, getMetricsForRole, groupMetricsByFrequency } from '../src/checklist.js';
+import { CHECKLIST, createCatalog, createChecklist, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getMetricsForRole, groupMetricsByFrequency } from '../src/checklist.js';
 import { APP_VERSION } from '../src/version.js';
 
 
@@ -278,6 +278,28 @@ describe('daily report storage helpers', () => {
       role: 'Оператор',
       managerRole: '',
     }]);
+  });
+
+  it('includes indirect reports in a director dashboard team', () => {
+    const catalog = createCatalog({
+      infoRows: [
+        { fullName: 'Иван', role: 'Директор по франчайзингу' },
+        { fullName: 'Диана', role: 'Руководитель Запуска', managerRole: 'Директор по франчайзингу' },
+        { fullName: 'Павел', role: 'Менеджер Запуска', managerRole: 'Руководитель Запуска' },
+      ],
+      metricSheets: [{
+        name: 'Франшиза',
+        rows: [
+          { frequency: 'ежедневно', metric: 'Запуск', role: 'Менеджер Запуска', managerRole: 'Руководитель Запуска' },
+        ],
+      }],
+    });
+
+    const director = findEmployeeByFullName('Иван', catalog.infoRows);
+    assert.deepEqual(
+      getManagedEmployees(director, catalog.infoRows, catalog.checklist).map((employee) => employee.fullName),
+      ['Диана', 'Павел'],
+    );
   });
 
   it('drops stale local submitted flags that are absent from the Data sheet', () => {

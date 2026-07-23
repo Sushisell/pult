@@ -1,6 +1,6 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.13';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.13';
-import { APP_VERSION } from './version.js?v=0.1.13';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.14';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.14';
+import { APP_VERSION } from './version.js?v=0.1.14';
 import {
   buildCsv,
   buildDataRows,
@@ -23,7 +23,7 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.13';
+} from './storage.js?v=0.1.14';
 
 const COMMENT_MAX_LENGTH = 200;
 const URL_STATE_KEYS = ['date', 'department', 'owner', 'view'];
@@ -1107,17 +1107,7 @@ function getManagerMetricDetail(row, metric, filled) {
 }
 
 function getDashboardEmployees(employee) {
-  return [employee, ...getManagedEmployees(employee)];
-}
-
-function getManagedEmployees(manager) {
-  const normalizedManagerRole = normalizeText(manager.role);
-  return state.catalog.infoRows.filter((employee) => {
-    if (employee.fullName === manager.fullName) return false;
-    const employeeMetrics = getMetricsForRole(employee.role, state.catalog.checklist);
-    const reportsToManager = employeeMetrics.some((metric) => normalizeText(metric.managerRole) === normalizedManagerRole);
-    return reportsToManager || normalizeText(employee.managerRole) === normalizedManagerRole;
-  });
+  return [employee, ...getManagedEmployees(employee, state.catalog.infoRows, state.catalog.checklist)];
 }
 
 function normalizeText(value) {
