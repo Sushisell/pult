@@ -79,7 +79,10 @@ function readInfoRows_(sheet) {
     fullName: getCell_(row, CONFIG.info.fullNameColumn),
     role: getCell_(row, CONFIG.info.roleColumn),
     managerRole: getCell_(row, CONFIG.info.managerRoleColumn),
-  })).filter((row) => row.fullName && row.role);
+  // Строка с ролью, но без ФИО — это временно отсутствующий сотрудник или
+  // незакрытая позиция. Передаём её в пульт, чтобы численность подотдела не
+  // уменьшалась на дашборде.
+  })).filter((row) => row.role);
 }
 
 function readMetricSheet_(sheet) {

@@ -280,6 +280,20 @@ describe('daily report storage helpers', () => {
     }]);
   });
 
+  it('keeps role-only Info rows for dashboard headcount but not employee selection', () => {
+    const catalog = createCatalog({
+      infoRows: [
+        { department: 'Франшиза', subdepartment: 'Отдел развития', fullName: 'Филипп', role: 'Старший агент' },
+        { department: 'Франшиза', subdepartment: 'Отдел развития', fullName: '', role: 'Руководитель развития' },
+      ],
+    });
+
+    assert.equal(catalog.infoRows.length, 1);
+    assert.equal(catalog.headcountRows.length, 2);
+    assert.equal(catalog.headcountRows[1].fullName, '');
+    assert.equal(catalog.headcountRows[1].subdepartment, 'Отдел развития');
+  });
+
   it('includes indirect reports in a director dashboard team', () => {
     const catalog = createCatalog({
       infoRows: [
@@ -573,5 +587,6 @@ describe('application version', () => {
     const appsScript = await readFile(new URL('../data/google-apps-script.js', import.meta.url), 'utf8');
 
     assert.match(appsScript, /managerRoleColumn:\s*10/);
+    assert.match(appsScript, /filter\(\(row\) => row\.role\)/);
   });
 });
