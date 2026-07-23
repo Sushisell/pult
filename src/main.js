@@ -1,6 +1,6 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.16';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.16';
-import { APP_VERSION } from './version.js?v=0.1.16';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.17';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.17';
+import { APP_VERSION } from './version.js?v=0.1.17';
 import {
   buildCsv,
   buildDataRows,
@@ -23,7 +23,7 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.16';
+} from './storage.js?v=0.1.17';
 
 const COMMENT_MAX_LENGTH = 200;
 const URL_STATE_KEYS = ['date', 'department', 'owner', 'view'];
@@ -564,14 +564,26 @@ function getSelectedDashboardCategories() {
 
 function buildDashboardFrequencyStates(team, category) {
   const periods = getDashboardPeriods(category.id, state.date);
-  return periods.flatMap((period) => team.flatMap((teammate) => {
-    const roleMetrics = getMetricsForRole(teammate.role, state.catalog.checklist)
-      .filter((metric) => metric.category === category.id);
-    return roleMetrics.map((metric) => {
-      const report = getDashboardPeriodReport(teammate.fullName, metric, period);
-      return createDashboardMetricState(metric, report, teammate, period);
+  return periods.flatMap((period) => {
+    // Several people can occupy one position. A metric belongs to the
+    // position, rather than to an individual employee: one completed entry is
+    // enough, even when the remaining metrics were completed by colleagues.
+    const ownersByMetric = new Map();
+    for (const teammate of team) {
+      const roleMetrics = getMetricsForRole(teammate.role, state.catalog.checklist)
+        .filter((metric) => metric.category === category.id);
+      for (const metric of roleMetrics) {
+        const position = ownersByMetric.get(metric.id) ?? { metric, teammates: [] };
+        position.teammates.push(teammate);
+        ownersByMetric.set(metric.id, position);
+      }
+    }
+
+    return [...ownersByMetric.values()].map(({ metric, teammates }) => {
+      const report = getDashboardPeriodReport(teammates.map((teammate) => teammate.fullName), metric, period);
+      return createDashboardMetricState(metric, report, teammates[0], period);
     });
-  }));
+  });
 }
 
 function getDashboardPeriods(categoryId, date) {
@@ -594,16 +606,22 @@ function getDashboardPeriods(categoryId, date) {
   return [{ ...period, id: period.start, label: `${formatRuDate(period.start)}–${formatRuDate(period.end)}` }];
 }
 
-function getDashboardPeriodReport(owner, metric, period) {
+function getDashboardPeriodReport(owners, metric, period) {
+  const ownerNames = new Set(owners.map(normalizeText));
   if (metric.category === 'daily') {
-    return getReportForDate(state.sheetReports, period.start, state.catalog.checklist, owner);
+    const reports = Object.values(state.sheetReports)
+      .filter((report) => report.date === period.start && ownerNames.has(normalizeText(report.owner)));
+    return reports.find((report) => isMetricFilled(report, metric.id))
+      ?? reports[0]
+      ?? createEmptyReport(period.start, state.catalog.checklist, '');
   }
 
   const reports = Object.values(state.sheetReports)
-    .filter((report) => report.owner === owner && report.date >= period.start && report.date <= period.end)
+    .filter((report) => ownerNames.has(normalizeText(report.owner)) && report.date >= period.start && report.date <= period.end)
     .sort((a, b) => b.date.localeCompare(a.date));
   return reports.find((report) => isMetricFilled(report, metric.id))
-    ?? getReportForDate(state.sheetReports, period.start, state.catalog.checklist, owner);
+    ?? reports[0]
+    ?? createEmptyReport(period.start, state.catalog.checklist, '');
 }
 
 function shiftISODate(date, days) {
