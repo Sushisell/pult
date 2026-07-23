@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { loadCatalog, submitDataRows } from '../src/data-source.js';
 import { areAllMetricsSubmitted, buildCsv, buildDataRows, buildReportsFromDataRows, createEmptyReport, getCompletion, getDueMetricsForDate, getPendingFilledMetrics, getReportForDate, isMetricSubmitted, isReportSubmittedForCategory, makeReportKey, markReportMetricsSubmitted, markReportSubmittedForCategory, mergeReportFilledRows, reconcileSubmittedMetricsWithSheetReports, upsertReport } from '../src/storage.js';
-import { CHECKLIST, createCatalog, createChecklist, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getMetricsForRole, groupMetricsByFrequency } from '../src/checklist.js';
+import { CHECKLIST, createCatalog, createChecklist, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency } from '../src/checklist.js';
 import { APP_VERSION } from '../src/version.js';
 
 
@@ -313,6 +313,51 @@ describe('daily report storage helpers', () => {
     assert.deepEqual(
       getManagedEmployees(director, catalog.infoRows, catalog.checklist).map((employee) => employee.fullName),
       ['Диана', 'Павел'],
+    );
+  });
+
+  it('builds the dashboard team exclusively from the Info role-manager chain', () => {
+    const catalog = createCatalog({
+      infoRows: [
+        { fullName: 'Иван', role: 'Генеральный директор' },
+        { fullName: 'Анна', role: 'Руководитель продаж', managerRole: 'Генеральный директор' },
+        { fullName: 'Павел', role: 'Менеджер продаж', managerRole: 'Руководитель продаж' },
+        { fullName: 'Мария', role: 'Маркетолог', managerRole: 'Директор маркетинга' },
+      ],
+      metricSheets: [{
+        name: 'Общие',
+        rows: [
+          // Column J may be used to label a metric dashboard, but it must not
+          // make an unrelated employee a report of the general director.
+          { frequency: 'ежедневно', metric: 'Кампания', role: 'Маркетолог', managerRole: 'Генеральный директор' },
+        ],
+      }],
+    });
+
+    const director = findEmployeeByFullName('Иван', catalog.infoRows);
+    assert.deepEqual(
+      getManagedEmployees(director, catalog.headcountRows).map((employee) => employee.fullName),
+      ['Анна', 'Павел'],
+    );
+  });
+
+  it('continues the manager chain through an Info row without a full name', () => {
+    const catalog = createCatalog({
+      infoRows: [
+        { fullName: 'Иван', role: 'Директор по франчайзингу' },
+        { fullName: '', role: 'Руководитель развития', managerRole: 'Директор по франчайзингу' },
+        { fullName: 'Филипп', role: 'Старший агент развития', managerRole: 'Руководитель развития' },
+      ],
+    });
+
+    const director = findEmployeeByFullName('Иван', catalog.infoRows);
+    assert.deepEqual(
+      getManagedEmployees(director, catalog.headcountRows).map((employee) => employee.fullName),
+      ['Филипп'],
+    );
+    assert.deepEqual(
+      getManagedOrganizationRows(director, catalog.headcountRows).map((row) => row.fullName),
+      ['', 'Филипп'],
     );
   });
 

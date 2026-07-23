@@ -1,6 +1,6 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.15';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.15';
-import { APP_VERSION } from './version.js?v=0.1.15';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.16';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.16';
+import { APP_VERSION } from './version.js?v=0.1.16';
 import {
   buildCsv,
   buildDataRows,
@@ -23,7 +23,7 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.15';
+} from './storage.js?v=0.1.16';
 
 const COMMENT_MAX_LENGTH = 200;
 const URL_STATE_KEYS = ['date', 'department', 'owner', 'view'];
@@ -1115,7 +1115,8 @@ function getManagerMetricDetail(row, metric, filled) {
 }
 
 function getDashboardEmployees(employee) {
-  return [employee, ...getManagedEmployees(employee, state.catalog.infoRows, state.catalog.checklist)];
+  const organizationRows = state.catalog.headcountRows ?? state.catalog.infoRows;
+  return [employee, ...getManagedEmployees(employee, organizationRows)];
 }
 
 function getDashboardHeadcountRows() {
@@ -1123,29 +1124,7 @@ function getDashboardHeadcountRows() {
   if (!selectedEmployee) return [];
 
   const organizationRows = state.catalog.headcountRows ?? state.catalog.infoRows;
-  const teamRows = [selectedEmployee];
-  const getRowKey = (row) => [row.department, row.subdepartment, row.fullName, row.role, row.managerRole]
-    .map(normalizeText)
-    .join('||');
-  const seenRows = new Set([getRowKey(selectedEmployee)]);
-  const managerRoles = new Set([normalizeText(selectedEmployee.role)]);
-
-  for (let index = 0; index < teamRows.length; index += 1) {
-    const currentRoles = String(teamRows[index].role ?? '')
-      .split(/[,;/|]+|\s+и\s+|\s+или\s+/u)
-      .map(normalizeText)
-      .filter(Boolean);
-    for (const role of currentRoles) managerRoles.add(role);
-
-    for (const row of organizationRows) {
-      const key = getRowKey(row);
-      if (seenRows.has(key) || !managerRoles.has(normalizeText(row.managerRole))) continue;
-      seenRows.add(key);
-      teamRows.push(row);
-    }
-  }
-
-  return teamRows;
+  return [selectedEmployee, ...getManagedOrganizationRows(selectedEmployee, organizationRows)];
 }
 
 function normalizeText(value) {
