@@ -1,6 +1,6 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.19';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.19';
-import { APP_VERSION } from './version.js?v=0.1.19';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.20';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.20';
+import { APP_VERSION } from './version.js?v=0.1.20';
 import {
   buildCsv,
   buildDataRows,
@@ -23,7 +23,7 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.19';
+} from './storage.js?v=0.1.20';
 
 const COMMENT_MAX_LENGTH = 200;
 const URL_STATE_KEYS = ['date', 'department', 'owner', 'view'];
@@ -916,7 +916,7 @@ function createManagerMatrixChartCell(row, periods) {
 function getManagerNumericPointTitle(point) {
   const label = point.label || 'Период';
   const value = point.display ?? 'нет данных';
-  return `${label}: ${value}${point.details ? `\n${point.details}` : ''}`;
+  return `${label}: среднее — ${value}${point.details ? `\n${point.details}` : ''}`;
 }
 
 function getManagerNumericPoint(cell, metric, period) {
@@ -931,8 +931,20 @@ function getManagerNumericPoint(cell, metric, period) {
     shortLabel: period ? formatRuDateShort(period.start) : entries[0]?.period ? formatRuDateShort(entries[0].period.start) : '',
     display: value === null ? null : formatMetricNumber(value, metric),
     comments: getManagerMatrixComments(entries),
-    details: getManagerMatrixDetails(entries),
+    details: getManagerNumericDetails(entries, metric),
   };
+}
+
+function getManagerNumericDetails(entries, metric) {
+  return entries
+    .map((entry) => {
+      const employee = entry.teammate?.fullName || 'Сотрудник не указан';
+      const value = getManagerNumericValue(entry.row, metric);
+      const display = Number.isFinite(value) ? formatMetricNumber(value, metric) : 'нет данных';
+      const comment = String(entry.row?.comment ?? '').trim();
+      return `${employee}: ${display}${comment ? ` — ${limitComment(comment)}` : ''}`;
+    })
+    .join('\n');
 }
 
 function createManagerSparkline(points, metric, title) {
