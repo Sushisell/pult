@@ -143,6 +143,18 @@ describe('daily report storage helpers', () => {
     assert.deepEqual(sharedOwners, ['Первый HR', 'Второй HR']);
   });
 
+  it('does not share metrics between employees marked as retail', () => {
+    const catalog = createCatalog({
+      infoRows: [
+        { department: 'Розница', fullName: 'Первый управляющий', role: 'Управляющий' },
+        { department: 'Розница', fullName: 'Второй управляющий', role: 'Управляющий' },
+      ],
+    });
+    const employee = findEmployeeByFullName('Первый управляющий', catalog.infoRows);
+
+    assert.deepEqual(getEmployeesWithSharedRole(employee, catalog.infoRows).map((row) => row.fullName), [employee.fullName]);
+  });
+
   it('hides metrics submitted by another employee with the same department role', () => {
     const report = createEmptyReport('2026-06-01', TEST_CHECKLIST, 'Первый HR');
     const hrMetrics = getMetricsForRole('HR', TEST_CHECKLIST);

@@ -73,7 +73,15 @@ export function employeesShareRole(firstEmployee, secondEmployee) {
 
 export function getEmployeesWithSharedRole(employee, infoRows = INFO_ROWS) {
   if (!employee) return [];
+  // In retail every employee occupying the same position must submit their own
+  // metrics. Other departments retain the shared-position workflow.
+  if (isRetailEmployee(employee)) return [employee];
   return infoRows.filter((teammate) => employeesShareRole(employee, teammate));
+}
+
+export function isRetailEmployee(employee) {
+  return [employee?.department, employee?.subdepartment]
+    .some((value) => normalizeText(value).includes('розница'));
 }
 
 // Строит ветку оргструктуры только по колонкам «Роль» и «Руководитель» листа

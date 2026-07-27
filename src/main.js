@@ -1,6 +1,6 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency } from './checklist.js?v=0.1.17';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.17';
-import { APP_VERSION } from './version.js?v=0.1.17';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.19';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.19';
+import { APP_VERSION } from './version.js?v=0.1.19';
 import {
   buildCsv,
   buildDataRows,
@@ -23,7 +23,7 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.17';
+} from './storage.js?v=0.1.19';
 
 const COMMENT_MAX_LENGTH = 200;
 const URL_STATE_KEYS = ['date', 'department', 'owner', 'view'];
@@ -579,9 +579,19 @@ function buildDashboardFrequencyStates(team, category) {
       }
     }
 
-    return [...ownersByMetric.values()].map(({ metric, teammates }) => {
-      const report = getDashboardPeriodReport(teammates.map((teammate) => teammate.fullName), metric, period);
-      return createDashboardMetricState(metric, report, teammates[0], period);
+    return [...ownersByMetric.values()].flatMap(({ metric, teammates }) => {
+      const retailTeammates = teammates.filter(isRetailEmployee);
+      const sharedTeammates = teammates.filter((teammate) => !isRetailEmployee(teammate));
+      const states = retailTeammates.map((teammate) => {
+        const report = getDashboardPeriodReport([teammate.fullName], metric, period);
+        return createDashboardMetricState(metric, report, teammate, period);
+      });
+
+      if (sharedTeammates.length > 0) {
+        const report = getDashboardPeriodReport(sharedTeammates.map((teammate) => teammate.fullName), metric, period);
+        states.push(createDashboardMetricState(metric, report, sharedTeammates[0], period));
+      }
+      return states;
     });
   });
 }
@@ -897,7 +907,7 @@ function createManagerMatrixChartCell(row, periods) {
   const points = periods.map((period) => getManagerNumericPoint(row.byPeriod.get(period.id), row.metric, period));
   const values = points.map((point) => point.value).filter((value) => Number.isFinite(value));
   const title = values.length > 0
-    ? `Динамика: ${points.map((point) => `${point.label}: ${point.display ?? '—'}${point.comments ? ` (${point.comments})` : ''}`).join(' · ')}`
+    ? `Динамика:\n${points.map((point) => getManagerNumericPointTitle(point)).join('\n\n')}`
     : 'Нет числовых данных для диаграммы';
   return `<td class="manager-chart-cell" colspan="${periods.length}">${createManagerSparkline(points, row.metric, title)}</td>`;
 }
@@ -906,7 +916,7 @@ function createManagerMatrixChartCell(row, periods) {
 function getManagerNumericPointTitle(point) {
   const label = point.label || 'Период';
   const value = point.display ?? 'нет данных';
-  return `${label}: ${value}${point.comments ? ` (${point.comments})` : ''}`;
+  return `${label}: ${value}${point.details ? `\n${point.details}` : ''}`;
 }
 
 function getManagerNumericPoint(cell, metric, period) {
@@ -921,6 +931,7 @@ function getManagerNumericPoint(cell, metric, period) {
     shortLabel: period ? formatRuDateShort(period.start) : entries[0]?.period ? formatRuDateShort(entries[0].period.start) : '',
     display: value === null ? null : formatMetricNumber(value, metric),
     comments: getManagerMatrixComments(entries),
+    details: getManagerMatrixDetails(entries),
   };
 }
 
@@ -990,9 +1001,23 @@ function createManagerMatrixDotCell(cell) {
   const status = cell?.status ?? 'empty';
   const title = getManagerMatrixTitle(cell);
   const comments = getManagerMatrixComments(cell?.entries ?? []);
-  const tooltip = comments || title;
+  const details = getManagerMatrixDetails(cell?.entries ?? []);
+  const tooltip = details || title;
   const commentClass = comments ? ' has-comment' : '';
-  return `<td><span class="manager-dot manager-dot-${status}${commentClass}" aria-label="${escapeHtml(tooltip)}" data-tooltip="${escapeHtml(tooltip)}" tabindex="0"></span></td>`;
+  const segments = createManagerDotSegments(cell);
+  return `<td><span class="manager-dot manager-dot-${status}${segments ? ' manager-dot-segmented' : ''}${commentClass}"${segments ? ` style="background:${segments}"` : ''} aria-label="${escapeHtml(tooltip)}" data-tooltip="${escapeHtml(tooltip)}" tabindex="0"></span></td>`;
+}
+
+function createManagerDotSegments(cell) {
+  const entries = cell?.entries ?? [];
+  if (entries.length < 2 || !entries.some((entry) => isRetailEmployee(entry.teammate))) return '';
+  const colors = { done: '#2fb66f', fixed: '#ffb738', issue: '#ff2f3d', empty: '#aeb4c2' };
+  const step = 100 / entries.length;
+  return `conic-gradient(${entries.map((entry, index) => {
+    const start = (index * step).toFixed(3);
+    const end = ((index + 1) * step).toFixed(3);
+    return `${colors[entry.status] ?? colors.empty} ${start}% ${end}%`;
+  }).join(',')})`;
 }
 
 function getManagerMatrixComments(entries) {
@@ -1003,6 +1028,17 @@ function getManagerMatrixComments(entries) {
       return `${entry.teammate.fullName}: ${limitComment(comment)}`;
     })
     .filter(Boolean)
+    .join('\n');
+}
+
+function getManagerMatrixDetails(entries) {
+  return entries
+    .map((entry) => {
+      const employee = entry.teammate?.fullName || 'Сотрудник не указан';
+      const status = getDashboardStatusLabel(entry.status);
+      const comment = String(entry.row?.comment ?? '').trim();
+      return `${employee}: ${status}${comment ? ` — ${limitComment(comment)}` : ''}`;
+    })
     .join('\n');
 }
 
