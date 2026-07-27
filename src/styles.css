@@ -1048,6 +1048,10 @@ textarea {
 .manager-dot-issue { background: #ef2f3d; }
 .manager-dot-empty { background: #aeb4c2; }
 
+.manager-dot-segmented {
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 75%);
+}
+
 .manager-progress {
   height: 8px;
   margin-top: 12px;
