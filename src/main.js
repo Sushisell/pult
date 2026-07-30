@@ -1,7 +1,7 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.21';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.21';
-import { APP_VERSION } from './version.js?v=0.1.21';
-import { getDashboardPeriods } from './dashboard-periods.js?v=0.1.21';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.23';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.23';
+import { APP_VERSION } from './version.js?v=0.1.23';
+import { getDashboardPeriods } from './dashboard-periods.js?v=0.1.23';
 import {
   buildCsv,
   buildDataRows,
@@ -24,7 +24,7 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.21';
+} from './storage.js?v=0.1.23';
 
 const COMMENT_MAX_LENGTH = 200;
 const URL_STATE_KEYS = ['date', 'department', 'owner', 'view'];
@@ -783,7 +783,7 @@ function createManagerSubdepartmentBlock(subdepartment, periods) {
       </div>
       <div class="manager-matrix-wrap">
         <table class="manager-matrix">
-          <thead><tr><th scope="col">Метрика</th>${periods.map((period) => `<th scope="col">${escapeHtml(period.shortLabel)}</th>`).join('')}</tr></thead>
+          <thead><tr><th scope="col">Метрика</th>${periods.map((period) => `<th scope="col">${createManagerPeriodHeading(period)}</th>`).join('')}</tr></thead>
           <tbody>${rows.map((row) => `
             <tr>
               <th scope="row">${escapeHtml(row.metric.metric)}</th>
@@ -808,8 +808,31 @@ function getManagerSectionPeriods(states) {
 }
 
 function getManagerPeriodShortLabel(period) {
+  if (period.kind === 'weekly') return `${getISOWeekNumber(period.start)} неделя`;
+  if (period.kind === 'monthly') return formatRuMonth(period.start);
   if (period.start === period.end) return `${formatRuDateShort(period.start)} (${getRuWeekdayShort(period.start)})`;
   return `${formatRuDateShort(period.start)}–${formatRuDateShort(period.end)}`;
+}
+
+function createManagerPeriodHeading(period) {
+  const label = getManagerPeriodShortLabel(period);
+  if (period.kind !== 'weekly') return escapeHtml(label);
+  const dates = `${formatRuDateShort(period.start)}–${formatRuDateShort(period.end)}`;
+  return `<abbr class="manager-period-heading" title="${escapeHtml(dates)}" aria-label="${escapeHtml(`${label}: ${dates}`)}">${escapeHtml(label)}</abbr>`;
+}
+
+function getISOWeekNumber(date) {
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  const thursday = new Date(parsed);
+  thursday.setUTCDate(parsed.getUTCDate() + 4 - (parsed.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(thursday.getUTCFullYear(), 0, 1));
+  return Math.ceil((((thursday - yearStart) / 86400000) + 1) / 7);
+}
+
+function formatRuMonth(date) {
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  const month = new Intl.DateTimeFormat('ru-RU', { month: 'long', timeZone: 'UTC' }).format(parsed);
+  return month.charAt(0).toLocaleUpperCase('ru-RU') + month.slice(1);
 }
 
 function getRuWeekdayShort(date) {
@@ -890,7 +913,7 @@ function getManagerNumericPoint(cell, metric, period) {
   return {
     value,
     label: period ? getManagerPeriodShortLabel(period) : entries[0]?.period ? getManagerPeriodShortLabel(entries[0].period) : '',
-    shortLabel: period ? formatRuDateShort(period.start) : entries[0]?.period ? formatRuDateShort(entries[0].period.start) : '',
+    shortLabel: period ? getManagerPeriodShortLabel(period) : entries[0]?.period ? getManagerPeriodShortLabel(entries[0].period) : '',
     display: value === null ? null : formatMetricNumber(value, metric),
     comments: getManagerMatrixComments(entries),
     details: getManagerNumericDetails(entries, metric),
@@ -931,9 +954,6 @@ function createManagerSparkline(points, metric, title) {
         <polyline points="${line}" />
         ${coords.filter((point) => point.y !== null).map((point) => `<g class="manager-sparkline-point${point.comments ? ' has-comment' : ''}${metric?.type === 'planFact' ? getPlanFactHealthClass(point.value) : ''}"><title>${escapeHtml(getManagerNumericPointTitle(point))}</title><circle cx="${point.x}" cy="${point.y}" r="4"></circle><text x="${point.x}" y="${Math.max(12, point.y - 10)}" text-anchor="middle">${escapeHtml(point.display)}</text>${point.comments ? `<text class="manager-sparkline-comment" x="${point.x + 8}" y="${Math.max(12, point.y - 8)}" aria-hidden="true">💬</text>` : ''}</g>`).join('')}
       </svg>
-      <div class="manager-sparkline-labels" style="grid-template-columns: repeat(${points.length}, minmax(0, 1fr));">
-        ${points.map((point) => `<span>${escapeHtml(point.shortLabel || point.label)}</span>`).join('')}
-      </div>
     </div>`;
 }
 

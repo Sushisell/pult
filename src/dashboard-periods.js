@@ -6,7 +6,7 @@ export function getDashboardPeriods(categoryId, selectedDate, currentDate) {
   if (categoryId === 'daily') {
     return Array.from({ length: DASHBOARD_HISTORY_LENGTH }, (_, index) => {
       const isoDate = shiftISODate(date, index - (DASHBOARD_HISTORY_LENGTH - 1));
-      return { id: isoDate, start: isoDate, end: isoDate };
+      return { id: isoDate, start: isoDate, end: isoDate, kind: 'daily' };
     });
   }
 
@@ -14,20 +14,20 @@ export function getDashboardPeriods(categoryId, selectedDate, currentDate) {
     return Array.from({ length: DASHBOARD_HISTORY_LENGTH }, (_, index) => {
       const weekDate = shiftISODate(date, index * -7);
       const period = getWeekPeriod(weekDate);
-      return { ...period, id: period.start };
-    });
+      return { ...period, id: period.start, kind: 'weekly' };
+    }).reverse();
   }
 
   if (categoryId === 'monthly') {
     return Array.from({ length: DASHBOARD_HISTORY_LENGTH }, (_, index) => {
       const monthDate = shiftISOMonth(date, index * -1);
       const period = getMonthPeriod(monthDate);
-      return { ...period, id: period.start };
-    });
+      return { ...period, id: period.start, kind: 'monthly' };
+    }).reverse();
   }
 
   const period = getQuarterPeriod(date);
-  return [{ ...period, id: period.start }];
+  return [{ ...period, id: period.start, kind: 'quarterly' }];
 }
 
 function getLatestAllowedDate(selectedDate, currentDate) {

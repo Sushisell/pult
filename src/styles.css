@@ -1837,3 +1837,15 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
 .manager-sparkline-point.is-planfact-danger text {
   fill: #bd254a;
 }
+
+/* A chart spans all period columns, so its plotting area must use their full width. */
+.manager-chart-cell {
+  padding-right: 0 !important;
+  padding-left: 0 !important;
+}
+
+.manager-period-heading {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
