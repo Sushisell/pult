@@ -133,35 +133,12 @@ body.is-loading .app-shell {
   text-decoration: none;
 }
 
-.brand-mark {
-  position: relative;
-  width: 18px;
-  height: 14px;
-  border-radius: 3px 8px 8px 3px;
-  background: #ef476f;
-}
-
-.brand-mark::before {
-  content: "";
-  position: absolute;
-  left: -5px;
-  top: 3px;
-  width: 0;
-  height: 0;
-  border-top: 4px solid transparent;
-  border-right: 7px solid #ffffff;
-  border-bottom: 4px solid transparent;
-}
-
-.brand-mark::after {
-  content: "";
-  position: absolute;
-  right: 2px;
-  bottom: -4px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #ffffff;
+.brand-logo {
+  display: block;
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  flex: 0 0 auto;
 }
 
 .app-version {
@@ -1348,9 +1325,6 @@ body::before {
 }
 
 .brand { gap: 12px; letter-spacing: -0.02em; }
-.brand-mark { width: 30px; height: 30px; border-radius: 12px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); box-shadow: 0 10px 22px rgb(239 71 111 / 35%); }
-.brand-mark::before { left: 9px; top: 8px; border-top-width: 7px; border-bottom-width: 7px; border-right: 10px solid #fff; }
-.brand-mark::after { right: 7px; bottom: 7px; width: 5px; height: 5px; }
 
 .header-nav { display: flex; gap: 6px; margin-left: auto; }
 .header-nav a { border-radius: 999px; padding: 10px 14px; color: rgb(255 255 255 / 76%); font-size: .86rem; font-weight: 800; text-decoration: none; }
