@@ -1,6 +1,7 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.20';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.20';
-import { APP_VERSION } from './version.js?v=0.1.20';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.21';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.21';
+import { APP_VERSION } from './version.js?v=0.1.21';
+import { getDashboardPeriods } from './dashboard-periods.js?v=0.1.21';
 import {
   buildCsv,
   buildDataRows,
@@ -23,7 +24,7 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.20';
+} from './storage.js?v=0.1.21';
 
 const COMMENT_MAX_LENGTH = 200;
 const URL_STATE_KEYS = ['date', 'department', 'owner', 'view'];
@@ -563,7 +564,13 @@ function getSelectedDashboardCategories() {
 }
 
 function buildDashboardFrequencyStates(team, category) {
-  const periods = getDashboardPeriods(category.id, state.date);
+  const periods = getDashboardPeriods(category.id, state.date, todayISO())
+    .map((period) => ({
+      ...period,
+      label: period.start === period.end
+        ? formatRuDate(period.start)
+        : `${formatRuDate(period.start)}–${formatRuDate(period.end)}`,
+    }));
   return periods.flatMap((period) => {
     // Several people can occupy one position. A metric belongs to the
     // position, rather than to an individual employee: one completed entry is
@@ -596,26 +603,6 @@ function buildDashboardFrequencyStates(team, category) {
   });
 }
 
-function getDashboardPeriods(categoryId, date) {
-  if (categoryId === 'daily') {
-    return Array.from({ length: 5 }, (_, index) => {
-      const isoDate = shiftISODate(date, index - 4);
-      return { id: isoDate, start: isoDate, end: isoDate, label: formatRuDate(isoDate) };
-    });
-  }
-
-  if (categoryId === 'weekly') {
-    return Array.from({ length: 3 }, (_, index) => {
-      const weekDate = shiftISODate(date, index * -7);
-      const period = getWeekPeriod(weekDate);
-      return { ...period, id: period.start, label: `${formatRuDate(period.start)}–${formatRuDate(period.end)}` };
-    });
-  }
-
-  const period = categoryId === 'quarterly' ? getQuarterPeriod(date) : getMonthPeriod(date);
-  return [{ ...period, id: period.start, label: `${formatRuDate(period.start)}–${formatRuDate(period.end)}` }];
-}
-
 function getDashboardPeriodReport(owners, metric, period) {
   const ownerNames = new Set(owners.map(normalizeText));
   if (metric.category === 'daily') {
@@ -639,31 +626,6 @@ function shiftISODate(date, days) {
   const shifted = new Date(Date.UTC(year, month - 1, day));
   shifted.setUTCDate(shifted.getUTCDate() + days);
   return shifted.toISOString().slice(0, 10);
-}
-
-function getWeekPeriod(date) {
-  const parsed = new Date(`${date}T00:00:00.000Z`);
-  const day = parsed.getUTCDay() || 7;
-  const start = new Date(parsed);
-  start.setUTCDate(parsed.getUTCDate() - day + 1);
-  const end = new Date(start);
-  end.setUTCDate(start.getUTCDate() + 6);
-  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
-}
-
-function getMonthPeriod(date) {
-  const [year, month] = String(date).split('-').map(Number);
-  const start = new Date(Date.UTC(year, month - 1, 1));
-  const end = new Date(Date.UTC(year, month, 0));
-  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
-}
-
-function getQuarterPeriod(date) {
-  const [year, month] = String(date).split('-').map(Number);
-  const quarterStartMonth = Math.floor((month - 1) / 3) * 3;
-  const start = new Date(Date.UTC(year, quarterStartMonth, 1));
-  const end = new Date(Date.UTC(year, quarterStartMonth + 3, 0));
-  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
 }
 
 function createDashboardMetricState(metric, report, teammate, period) {
