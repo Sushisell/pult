@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1017 1018">
+  <defs>
+    <clipPath id="logo-shape">
+      <rect width="1017" height="1018" rx="270" />
+    </clipPath>
+  </defs>
+  <g clip-path="url(#logo-shape)">
+    <rect width="1017" height="1018" fill="#ff002b" />
+    <path fill="#fff" d="M362 149h655v63H362z" />
+    <path
+      fill="#fff"
+      d="M469 212C303 273 190 435 190 612c0 154 99 238 255 250l-38 10 13 63 597-126v-67l-371 78c88-56 148-143 180-246H543l-34 99h-73l101-313 77 1-48 144h281c31-101 9-222-119-293H469Z"
+    />
+  </g>
+</svg>
