@@ -35,6 +35,8 @@ const CONFIG = {
     typeColumn: 9,
     // J связывает метрику с руководителем, в чьём дашборде она должна отображаться.
     managerRoleColumn: 10,
+    // N = флажок: пустая ежедневная метрика в выходной считается ошибкой.
+    weekendRequiredColumn: 14,
     // Необязательные колонки. Оставьте null, если их нет в таблице.
     reportFormatColumn: null,
     placeholderColumn: null,
@@ -97,6 +99,7 @@ function readMetricSheet_(sheet) {
       deadline: getOptionalCell_(row, CONFIG.metrics.deadlineColumn),
       classification: getOptionalCell_(row, CONFIG.metrics.classificationColumn),
       managerRole: getOptionalCell_(row, CONFIG.metrics.managerRoleColumn),
+      weekendRequired: isChecked_(getOptionalCell_(row, CONFIG.metrics.weekendRequiredColumn)),
       reportFormat: getOptionalCell_(row, CONFIG.metrics.reportFormatColumn) || getOptionalCell_(row, CONFIG.metrics.descriptionColumn) || 'Проверено / не проверено',
       type: getTypeByClassification_(getOptionalCell_(row, CONFIG.metrics.typeColumn) || getOptionalCell_(row, CONFIG.metrics.classificationColumn)),
       placeholder: getOptionalCell_(row, CONFIG.metrics.placeholderColumn),
@@ -169,6 +172,10 @@ function normalizeTypeValue_(value) {
     .toLowerCase()
     .replace(/\s*([\/-])\s*/g, '$1')
     .replace(/\s+/g, ' ');
+}
+
+function isChecked_(value) {
+  return ['true', 'да', '1', 'yes'].includes(String(value ?? '').trim().toLowerCase());
 }
 
 function getDataRows_(sheet) {

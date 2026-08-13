@@ -685,6 +685,22 @@ describe('application version', () => {
     const appsScript = await readFile(new URL('../data/google-apps-script.js', import.meta.url), 'utf8');
 
     assert.match(appsScript, /managerRoleColumn:\s*10/);
+    assert.match(appsScript, /weekendRequiredColumn:\s*14/);
     assert.match(appsScript, /filter\(\(row\) => row\.role\)/);
+  });
+
+  it('normalizes the weekend-required checkbox from metric data', () => {
+    const catalog = createCatalog({
+      metricSheets: [{
+        name: 'HR',
+        rows: [
+          { frequency: 'ежедневно', metric: 'С выходными', role: 'HR', weekendRequired: true },
+          { frequency: 'ежедневно', metric: 'Без выходных', role: 'HR', weekendRequired: 'FALSE' },
+        ],
+      }],
+    });
+
+    assert.equal(catalog.checklist[0].weekendRequired, true);
+    assert.equal(catalog.checklist[1].weekendRequired, false);
   });
 });

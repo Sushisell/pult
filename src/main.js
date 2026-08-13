@@ -1,7 +1,7 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.23';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.23';
-import { APP_VERSION } from './version.js?v=0.1.23';
-import { getDashboardPeriods } from './dashboard-periods.js?v=0.1.23';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.24';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.24';
+import { APP_VERSION } from './version.js?v=0.1.24';
+import { filterWeekendDashboardStates, getDashboardPeriods } from './dashboard-periods.js?v=0.1.24';
 import {
   buildCsv,
   buildDataRows,
@@ -24,7 +24,7 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.23';
+} from './storage.js?v=0.1.24';
 
 const COMMENT_MAX_LENGTH = 200;
 const URL_STATE_KEYS = ['date', 'department', 'owner', 'view'];
@@ -526,7 +526,7 @@ function renderManagerDashboard(employee, { isAvailable = false } = {}) {
 
 function buildManagerMetricsDashboard(team) {
   const selectedCategories = getSelectedDashboardCategories();
-  const metricStates = hideEmptyWeekendDailyStates(
+  const metricStates = filterWeekendDashboardStates(
     selectedCategories.flatMap((category) => buildDashboardFrequencyStates(team, category)),
   );
   return {
@@ -539,23 +539,6 @@ function buildManagerMetricsDashboard(team) {
     })).filter((group) => group.states.length > 0),
     roleHealth: createRoleHealth(metricStates),
   };
-}
-
-function hideEmptyWeekendDailyStates(states) {
-  const filledWeekendPeriods = new Set(states
-    .filter((entry) => entry.metric.category === 'daily' && isWeekendISODate(entry.period.start) && entry.filled)
-    .map((entry) => entry.period.id));
-
-  return states.filter((entry) => (
-    entry.metric.category !== 'daily'
-    || !isWeekendISODate(entry.period.start)
-    || filledWeekendPeriods.has(entry.period.id)
-  ));
-}
-
-function isWeekendISODate(date) {
-  const day = new Date(`${date}T00:00:00.000Z`).getUTCDay();
-  return day === 0 || day === 6;
 }
 
 function getSelectedDashboardCategories() {
@@ -787,7 +770,7 @@ function createManagerSubdepartmentBlock(subdepartment, periods) {
           <tbody>${rows.map((row) => `
             <tr>
               <th scope="row">${escapeHtml(row.metric.metric)}</th>
-              ${isNumericMetric(row.metric) ? createManagerMatrixChartCell(row, periods) : periods.map((period) => createManagerMatrixDotCell(row.byPeriod.get(period.id))).join('')}
+              ${isNumericMetric(row.metric) ? createManagerMatrixChartCell(row, periods) : periods.map((period) => createManagerMatrixDotCell(row.byPeriod.get(period.id), row.metric, period)).join('')}
             </tr>`).join('')}
           </tbody>
         </table>
@@ -991,7 +974,10 @@ function formatMetricNumber(value, metric) {
   return `${formatted}${metric?.suffix ? ` ${metric.suffix}` : ''}`;
 }
 
-function createManagerMatrixDotCell(cell) {
+function createManagerMatrixDotCell(cell, metric, period) {
+  if ((cell?.entries?.length ?? 0) === 0 && metric?.category === 'daily' && metric.weekendRequired !== true && isWeekendDate(period?.start)) {
+    return '<td class="manager-matrix-not-applicable" aria-label="В выходной метрика не требуется"></td>';
+  }
   const status = cell?.status ?? 'empty';
   const title = getManagerMatrixTitle(cell);
   const comments = getManagerMatrixComments(cell?.entries ?? []);
@@ -1000,6 +986,12 @@ function createManagerMatrixDotCell(cell) {
   const commentClass = comments ? ' has-comment' : '';
   const segments = createManagerDotSegments(cell);
   return `<td><span class="manager-dot manager-dot-${status}${segments ? ' manager-dot-segmented' : ''}${commentClass}"${segments ? ` style="background:${segments}"` : ''} aria-label="${escapeHtml(tooltip)}" data-tooltip="${escapeHtml(tooltip)}" tabindex="0"></span></td>`;
+}
+
+function isWeekendDate(date) {
+  if (!date) return false;
+  const day = new Date(`${date}T00:00:00.000Z`).getUTCDay();
+  return day === 0 || day === 6;
 }
 
 function createManagerDotSegments(cell) {

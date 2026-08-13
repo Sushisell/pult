@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { getDashboardPeriods } from '../src/dashboard-periods.js';
+import { filterWeekendDashboardStates, getDashboardPeriods } from '../src/dashboard-periods.js';
 
 describe('dashboard history periods', () => {
   it('returns five weeks in chronological order through the selected week', () => {
@@ -34,5 +34,36 @@ describe('dashboard history periods', () => {
 
     assert.equal(weekly.at(-1).start, '2026-07-27');
     assert.equal(monthly.at(-1).start, '2026-07-01');
+  });
+});
+
+describe('weekend dashboard states', () => {
+  const state = (date, { filled = false, weekendRequired = false } = {}) => ({
+    metric: { category: 'daily', weekendRequired },
+    period: { start: date },
+    filled,
+  });
+
+  it('keeps an empty weekend metric when its column N checkbox is checked', () => {
+    const required = state('2026-08-09', { weekendRequired: true });
+
+    assert.deepEqual(filterWeekendDashboardStates([required]), [required]);
+  });
+
+  it('excludes an empty optional weekend metric from dots and dashboard score', () => {
+    assert.deepEqual(filterWeekendDashboardStates([state('2026-08-08')]), []);
+  });
+
+  it('keeps filled weekend data even when the checkbox is not checked', () => {
+    const filled = state('2026-08-08', { filled: true });
+
+    assert.deepEqual(filterWeekendDashboardStates([filled]), [filled]);
+  });
+
+  it('does not filter weekday or non-daily states', () => {
+    const weekday = state('2026-08-10');
+    const weekly = { ...state('2026-08-08'), metric: { category: 'weekly', weekendRequired: false } };
+
+    assert.deepEqual(filterWeekendDashboardStates([weekday, weekly]), [weekday, weekly]);
   });
 });

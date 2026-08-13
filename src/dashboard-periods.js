@@ -30,6 +30,20 @@ export function getDashboardPeriods(categoryId, selectedDate, currentDate) {
   return [{ ...period, id: period.start, kind: 'quarterly' }];
 }
 
+export function filterWeekendDashboardStates(states) {
+  return states.filter((entry) => (
+    entry.metric.category !== 'daily'
+    || !isWeekendISODate(entry.period.start)
+    || entry.filled
+    || entry.metric.weekendRequired === true
+  ));
+}
+
+function isWeekendISODate(date) {
+  const day = new Date(`${date}T00:00:00.000Z`).getUTCDay();
+  return day === 0 || day === 6;
+}
+
 function getLatestAllowedDate(selectedDate, currentDate) {
   if (!currentDate) return selectedDate;
   return selectedDate > currentDate ? currentDate : selectedDate;

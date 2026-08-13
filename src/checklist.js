@@ -244,6 +244,7 @@ function normalizeMetricRows(rows) {
       deadline: String(row.deadline ?? row.dueDate ?? row['Срок сдачи'] ?? row['Дедлайн'] ?? '').trim(),
       role: String(row.role ?? row['Должность ответственного'] ?? row['Роль'] ?? '').trim(),
       managerRole: String(row.managerRole ?? row.dashboardManagerRole ?? row['Руководитель для дашборда'] ?? row['Роль руководителя'] ?? '').trim(),
+      weekendRequired: normalizeBoolean(row.weekendRequired ?? row['Работа в выходные'] ?? row['Выходные'] ?? row['N']),
       reportFormat: String(row.reportFormat ?? row['Формат отчёта'] ?? row.description ?? row['Описание'] ?? row.classification ?? row['Классификация'] ?? 'Проверено / не проверено').trim(),
       classification: String(row.classification ?? row['Классификация'] ?? row['Классификация метрики'] ?? row.type ?? row['Тип'] ?? row['Тип задания'] ?? '').trim(),
       type: getMetricType(row),
@@ -296,6 +297,11 @@ function normalizeMetricType(value) {
     .replace(/\s*([\/-])\s*/g, '$1')
     .replace(/\s+/g, ' ')
     .toLowerCase();
+}
+
+function normalizeBoolean(value) {
+  if (value === true || value === 1) return true;
+  return ['true', 'да', '1', 'yes'].includes(String(value ?? '').trim().toLowerCase());
 }
 
 function normalizeText(value) {
