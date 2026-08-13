@@ -132,6 +132,37 @@ export function getManagedEmployees(manager, organizationRows = INFO_ROWS) {
   });
 }
 
+// Возвращает строки в порядке оргструктуры из «Инфо»: руководитель, затем вся
+// его ветка, и только после неё следующий руководитель. Глубина нужна дашборду
+// для визуального отступа сотрудников каждого уровня.
+export function getOrganizationHierarchy(organizationRows = INFO_ROWS) {
+  const rows = organizationRows.filter((row) => row?.fullName);
+  const rowSet = new Set(rows);
+  const children = new Map(rows.map((row) => [row, []]));
+
+  for (const row of rows) {
+    const manager = rows.find((candidate) => (
+      candidate !== row && roleMatches(splitRoleAliases(candidate.role), row.managerRole)
+    ));
+    if (manager) children.get(manager).push(row);
+  }
+
+  const childRows = new Set([...children.values()].flat());
+  const ordered = [];
+  const visited = new Set();
+  const visit = (row, depth) => {
+    if (!rowSet.has(row) || visited.has(row)) return;
+    visited.add(row);
+    ordered.push({ employee: row, depth });
+    for (const child of children.get(row)) visit(child, depth + 1);
+  };
+
+  for (const root of rows.filter((row) => !childRows.has(row))) visit(root, 0);
+  // Некорректная циклическая связь в таблице не должна скрывать сотрудников.
+  for (const row of rows) visit(row, 0);
+  return ordered;
+}
+
 
 function roleMatches(employeeRoles, metricRole) {
   const metricRoles = splitRoleAliases(metricRole);
