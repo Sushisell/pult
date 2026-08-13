@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { loadCatalog, submitDataRows } from '../src/data-source.js';
 import { areAllMetricsSubmitted, buildCsv, buildDataRows, buildReportsFromDataRows, createEmptyReport, getCompletion, getDueMetricsForDate, getPendingFilledMetrics, getReportForDate, isMetricSubmitted, isReportSubmittedForCategory, makeReportKey, markReportMetricsSubmitted, markReportSubmittedForCategory, mergeReportFilledRows, reconcileSubmittedMetricsWithSheetReports, upsertReport } from '../src/storage.js';
-import { CHECKLIST, createCatalog, createChecklist, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, getOrganizationHierarchy, groupMetricsByFrequency } from '../src/checklist.js';
+import { CHECKLIST, createCatalog, createChecklist, findEmployeeByFullName, getDashboardEmployees, getDashboardMetricOwners, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, getOrganizationHierarchy, groupMetricsByFrequency } from '../src/checklist.js';
 import { APP_VERSION } from '../src/version.js';
 
 
@@ -410,6 +410,31 @@ describe('daily report storage helpers', () => {
       getManagedEmployees(director, catalog.headcountRows).map((employee) => employee.fullName),
       ['Анна', 'Павел'],
     );
+  });
+
+  it('excludes the general director and their department from the executive dashboard', () => {
+    const rows = [
+      { department: 'Руководство', fullName: 'Иван', role: 'Генеральный директор' },
+      { department: 'Руководство', fullName: 'Помощник', role: 'Помощник директора', managerRole: 'Генеральный директор' },
+      { department: 'Продажи', fullName: 'Анна', role: 'Руководитель продаж', managerRole: 'Генеральный директор' },
+      { department: 'Продажи', fullName: 'Павел', role: 'Менеджер продаж', managerRole: 'Руководитель продаж' },
+    ];
+
+    assert.deepEqual(
+      getDashboardEmployees(rows[0], rows).map((employee) => employee.fullName),
+      ['Анна', 'Павел'],
+    );
+  });
+
+  it('combines dashboard metrics by position only for ОКС employees', () => {
+    const oksFirst = { department: 'ОКС', fullName: 'Первый оператор', role: 'Оператор' };
+    const oksSecond = { department: 'ОКС', fullName: 'Второй оператор', role: 'Оператор' };
+    const salesFirst = { department: 'Продажи', fullName: 'Первый менеджер', role: 'Менеджер' };
+    const salesSecond = { department: 'Продажи', fullName: 'Второй менеджер', role: 'Менеджер' };
+    const team = [oksFirst, oksSecond, salesFirst, salesSecond];
+
+    assert.deepEqual(getDashboardMetricOwners(oksFirst, team), [oksFirst, oksSecond]);
+    assert.deepEqual(getDashboardMetricOwners(salesFirst, team), [salesFirst]);
   });
 
   it('continues the manager chain through an Info row without a full name', () => {
