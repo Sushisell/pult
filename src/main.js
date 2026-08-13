@@ -1,7 +1,7 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.31';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.31';
-import { APP_VERSION } from './version.js?v=0.1.31';
-import { calculateDashboardIndexes, filterWeekendDashboardStates, getCompletionZone, getDashboardPeriods } from './dashboard-periods.js?v=0.1.31';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, getOrganizationHierarchy, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.32';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.32';
+import { APP_VERSION } from './version.js?v=0.1.32';
+import { calculateDashboardIndexes, filterWeekendDashboardStates, getCompletionZone, getDashboardPeriods, getPerformanceColor } from './dashboard-periods.js?v=0.1.32';
 import {
   buildCsv,
   buildDataRows,
@@ -24,7 +24,7 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.31';
+} from './storage.js?v=0.1.32';
 
 const COMMENT_MAX_LENGTH = 200;
 const URL_STATE_KEYS = ['date', 'department', 'owner', 'view'];
@@ -632,55 +632,38 @@ function createExecutiveDashboard({ team, departmentRows }) {
 }
 
 function createExecutiveDepartment(group, employeeRows, isOpen) {
-  const rows = employeeRows
-    .filter(({ employee }) => (employee.department || 'Без отдела') === group.department)
-    .sort((a, b) => getExecutiveEmployeeDepth(a.employee, group.employees) - getExecutiveEmployeeDepth(b.employee, group.employees)
-      || a.employee.fullName.localeCompare(b.employee.fullName, 'ru'));
+  const totalsByEmployee = new Map(employeeRows.map((row) => [row.employee, row.totals]));
+  const rows = getOrganizationHierarchy(group.employees)
+    .map(({ employee, depth }) => ({ employee, depth, totals: totalsByEmployee.get(employee) }));
   const totals = group.totals;
   return `<details class="executive-department-card"${isOpen ? ' open' : ''}>
     <summary>
       <span class="executive-department-toggle" aria-hidden="true"></span>
       <span class="executive-department-name">${escapeHtml(group.department)}<small>${group.employees.length} ${getRussianCountLabel(group.employees.length, ['сотрудник', 'сотрудника', 'сотрудников'])}</small></span>
-      <span class="executive-department-index"><small>Индекс здоровья</small><strong>${totals.health}%</strong></span>
-      <span class="executive-department-index"><small>Индекс заполняемости</small><strong>${totals.completion}%</strong><em>${totals.filled} из ${totals.total} метрик</em></span>
+      <span class="executive-department-index" style="--index-color:${getPerformanceColor(totals.health)}"><small>Индекс здоровья</small><strong>${totals.health}%</strong></span>
+      <span class="executive-department-index" style="--index-color:${getPerformanceColor(totals.completion)}"><small>Индекс заполняемости</small><strong>${totals.completion}%</strong><em>${totals.filled} из ${totals.total} метрик</em></span>
     </summary>
     <div class="executive-department-body">
       <div class="executive-table-wrap"><table class="executive-table">
         <thead><tr><th scope="col">Руководитель и сотрудники</th><th scope="col">Должность</th><th scope="col">Индекс здоровья</th><th scope="col">Заполняемость</th><th scope="col">Метрики</th></tr></thead>
-        <tbody>${rows.map(({ employee, totals: employeeTotals }) => {
-          const depth = getExecutiveEmployeeDepth(employee, group.employees);
-          return `<tr>
+        <tbody>${rows.map(({ employee, depth, totals: employeeTotals }) => `<tr>
             <th scope="row" style="--employee-depth:${depth}"><span class="executive-avatar" aria-hidden="true">${escapeHtml(getEmployeeInitials(employee.fullName))}</span><span>${escapeHtml(employee.fullName)}${depth === 0 ? '<small>Руководитель отдела</small>' : ''}</span></th>
             <td>${escapeHtml(employee.role || 'Должность не указана')}</td>
             <td>${createExecutiveIndexBadge(employeeTotals.health, 'health')}</td>
             <td>${createExecutiveIndexBadge(employeeTotals.completion, 'completion')}</td>
             <td><strong>${employeeTotals.filled}</strong><small> из ${employeeTotals.total}</small></td>
-          </tr>`;
-        }).join('')}</tbody>
+          </tr>`).join('')}</tbody>
       </table></div>
     </div>
     <div class="manager-progress" aria-label="Заполняемость отдела ${escapeHtml(group.department)}: ${totals.completion}%"><span style="width:${totals.completion}%"></span></div>
   </details>`;
 }
 
-function getExecutiveEmployeeDepth(employee, departmentEmployees) {
-  const roles = new Set(departmentEmployees.map((row) => normalizeText(row.role)));
-  let depth = 0;
-  let managerRole = normalizeText(employee.managerRole);
-  const visited = new Set();
-  while (managerRole && roles.has(managerRole) && !visited.has(managerRole)) {
-    visited.add(managerRole);
-    depth += 1;
-    managerRole = normalizeText(departmentEmployees.find((row) => normalizeText(row.role) === managerRole)?.managerRole);
-  }
-  return depth;
-}
-
 function createExecutiveIndexBadge(value, type) {
   const zone = type === 'completion'
     ? getCompletionZone(value)
     : value >= 85 ? 'success' : value >= 70 ? 'warning' : 'danger';
-  return `<span class="executive-index executive-index-${zone}"><b>${value}%</b><i style="--index:${value}%"></i></span>`;
+  return `<span class="executive-index executive-index-${zone}" style="--index-color:${getPerformanceColor(value)}"><b>${value}%</b><i style="--index:${value}%"></i></span>`;
 }
 
 function getEmployeeInitials(fullName) {

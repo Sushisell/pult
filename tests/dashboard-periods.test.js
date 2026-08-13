@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { calculateDashboardIndexes, filterWeekendDashboardStates, getCompletionZone, getDashboardPeriods } from '../src/dashboard-periods.js';
+import { calculateDashboardIndexes, filterWeekendDashboardStates, getCompletionZone, getDashboardPeriods, getPerformanceColor } from '../src/dashboard-periods.js';
 
 describe('dashboard history periods', () => {
   it('returns five weeks in chronological order through the selected week', () => {
@@ -69,6 +69,12 @@ describe('weekend dashboard states', () => {
 });
 
 describe('dashboard indexes', () => {
+  it('uses a continuous red-to-green scale above the bad zone', () => {
+    assert.equal(getPerformanceColor(84), 'hsl(355 78% 45%)');
+    assert.equal(getPerformanceColor(90), 'hsl(40 78% 45%)');
+    assert.equal(getPerformanceColor(96), 'hsl(88 78% 45%)');
+    assert.equal(getPerformanceColor(100), 'hsl(120 78% 45%)');
+  });
   it('calculates health only from filled values and completion from all required values', () => {
     const states = [
       { status: 'done' },

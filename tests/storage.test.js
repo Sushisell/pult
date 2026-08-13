@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { loadCatalog, submitDataRows } from '../src/data-source.js';
 import { areAllMetricsSubmitted, buildCsv, buildDataRows, buildReportsFromDataRows, createEmptyReport, getCompletion, getDueMetricsForDate, getPendingFilledMetrics, getReportForDate, isMetricSubmitted, isReportSubmittedForCategory, makeReportKey, markReportMetricsSubmitted, markReportSubmittedForCategory, mergeReportFilledRows, reconcileSubmittedMetricsWithSheetReports, upsertReport } from '../src/storage.js';
-import { CHECKLIST, createCatalog, createChecklist, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency } from '../src/checklist.js';
+import { CHECKLIST, createCatalog, createChecklist, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, getOrganizationHierarchy, groupMetricsByFrequency } from '../src/checklist.js';
 import { APP_VERSION } from '../src/version.js';
 
 
@@ -367,6 +367,24 @@ describe('daily report storage helpers', () => {
       getManagedEmployees(director, catalog.infoRows, catalog.checklist).map((employee) => employee.fullName),
       ['Диана', 'Павел'],
     );
+  });
+
+  it('places each Info manager directly before their complete reporting branch', () => {
+    const rows = [
+      { fullName: 'Габдрахимов Иван', role: 'Директор' },
+      { fullName: 'Другой Руководитель', role: 'Руководитель продаж', managerRole: 'Директор' },
+      { fullName: 'Чупин Роман', role: 'Руководитель техотдела', managerRole: 'Директор' },
+      { fullName: 'Другой Сотрудник', role: 'Менеджер', managerRole: 'Руководитель продаж' },
+      { fullName: 'Лавринович Александр', role: 'Руководитель техподдержки', managerRole: 'Руководитель техотдела' },
+    ];
+
+    assert.deepEqual(getOrganizationHierarchy(rows).map(({ employee, depth }) => [employee.fullName, depth]), [
+      ['Габдрахимов Иван', 0],
+      ['Другой Руководитель', 1],
+      ['Другой Сотрудник', 2],
+      ['Чупин Роман', 1],
+      ['Лавринович Александр', 2],
+    ]);
   });
 
   it('builds the dashboard team exclusively from the Info role-manager chain', () => {

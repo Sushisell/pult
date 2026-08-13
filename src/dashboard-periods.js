@@ -58,6 +58,12 @@ export function getCompletionZone(completion) {
   return 'success';
 }
 
+export function getPerformanceColor(value) {
+  const percent = Math.max(0, Math.min(100, Number(value) || 0));
+  const hue = percent < 85 ? 355 : Math.round((percent - 85) * 8);
+  return `hsl(${hue} 78% 45%)`;
+}
+
 function isWeekendISODate(date) {
   const day = new Date(`${date}T00:00:00.000Z`).getUTCDay();
   return day === 0 || day === 6;
