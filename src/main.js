@@ -1,7 +1,7 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.26';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.26';
-import { APP_VERSION } from './version.js?v=0.1.26';
-import { filterWeekendDashboardStates, getDashboardPeriods } from './dashboard-periods.js?v=0.1.26';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.29';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.29';
+import { APP_VERSION } from './version.js?v=0.1.29';
+import { calculateDashboardIndexes, filterWeekendDashboardStates, getCompletionZone, getDashboardPeriods } from './dashboard-periods.js?v=0.1.29';
 import {
   buildCsv,
   buildDataRows,
@@ -24,10 +24,12 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.26';
+} from './storage.js?v=0.1.29';
 
 const COMMENT_MAX_LENGTH = 200;
 const URL_STATE_KEYS = ['date', 'department', 'owner', 'view'];
+const SPARKLINE_UNKNOWN_COLOR = '#aeb4c2';
+let sparklineGradientSequence = 0;
 const managerTooltip = createManagerTooltip();
 
 const state = {
@@ -687,23 +689,31 @@ function getDashboardTotals(states) {
   return {
     ...counts,
     total,
-    health: total === 0 ? 0 : Math.round(((counts.done + counts.fixed) / total) * 100),
+    ...calculateDashboardIndexes(states),
   };
 }
 
 function createManagerHero(employee, dashboard) {
   const hero = document.createElement('div');
   hero.className = 'manager-hero';
+  const completionZone = getCompletionZone(dashboard.totals.completion);
   hero.innerHTML = `
     <div>
       <p class="manager-eyebrow">Дашборд метрик</p>
       <h2>Контроль процессов: ${escapeHtml(employee.role)}</h2>
       <span>${getManagedEmployees(employee).length > 0 ? 'Состояние команды и личных метрик' : 'Состояние личных метрик'} на ${escapeHtml(formatRuDate(state.date))}</span>
     </div>
-    <div class="manager-health-card">
-      <span>Индекс здоровья процессов</span>
-      <strong>${dashboard.totals.health}%</strong>
-      <small>${dashboard.totals.health >= 85 ? 'Система работает штатно' : dashboard.totals.health >= 70 ? 'Есть зоны внимания' : 'Нужна реакция руководителя'}</small>
+    <div class="manager-index-grid">
+      <div class="manager-health-card manager-health-card-${dashboard.totals.health >= 85 ? 'success' : dashboard.totals.health >= 70 ? 'warning' : 'danger'}">
+        <span>Индекс здоровья процессов</span>
+        <strong>${dashboard.totals.health}%</strong>
+        <small>${dashboard.totals.health >= 85 ? 'Система работает штатно' : dashboard.totals.health >= 70 ? 'Есть зоны внимания' : 'Нужна реакция руководителя'}</small>
+      </div>
+      <div class="manager-health-card manager-health-card-${completionZone}">
+        <span>Индекс заполняемости</span>
+        <strong>${dashboard.totals.completion}%</strong>
+        <small>${dashboard.totals.filled} из ${dashboard.totals.total} метрик заполнено</small>
+      </div>
     </div>
   `;
   return hero;
@@ -973,7 +983,6 @@ function getManagerNumericDetails(entries, metric) {
 }
 
 function createManagerSparkline(points, metric, title) {
-  const width = 360;
   const height = 96;
   const padding = 14;
   const values = points.map((point) => point.value).filter((value) => Number.isFinite(value));
@@ -982,19 +991,43 @@ function createManagerSparkline(points, metric, title) {
   const max = Math.max(...values);
   const range = max - min || 1;
   const coords = points.map((point, index) => {
-    const x = points.length === 1 ? width / 2 : (width * (index + 0.5)) / points.length;
+    const x = `${((index + 0.5) / points.length) * 100}%`;
     const y = Number.isFinite(point.value) ? height - padding - ((point.value - min) / range) * (height - padding * 2) : null;
     return { ...point, x, y };
   });
-  const line = coords.filter((point) => point.y !== null).map((point) => `${point.x},${point.y}`).join(' ');
+  const plottedCoords = coords.filter((point) => point.y !== null);
+  const gradientPrefix = `manager-sparkline-gradient-${sparklineGradientSequence += 1}`;
+  const gradients = plottedCoords.slice(1).map((point, index) => {
+    const previous = plottedCoords[index];
+    const id = `${gradientPrefix}-${index}`;
+    const startColor = getManagerSparklineColor(previous.value, metric);
+    const endColor = getManagerSparklineColor(point.value, metric);
+    return `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${previous.x}" y1="0" x2="${point.x}" y2="0">
+      <stop offset="0%" stop-color="${startColor}" />
+      <stop offset="50%" stop-color="${startColor}" />
+      <stop offset="100%" stop-color="${endColor}" />
+    </linearGradient>`;
+  }).join('');
+  const segments = plottedCoords.slice(1).map((point, index) => {
+    const previous = plottedCoords[index];
+    return `<line class="manager-sparkline-segment" x1="${previous.x}" y1="${previous.y}" x2="${point.x}" y2="${point.y}" stroke="url(#${gradientPrefix}-${index})" />`;
+  }).join('');
   return `
     <div class="manager-sparkline" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">
-      <svg viewBox="0 0 ${width} ${height}" role="img" aria-hidden="true" focusable="false">
-        <line x1="${width / (points.length * 2)}" y1="${height - padding}" x2="${width - (width / (points.length * 2))}" y2="${height - padding}" />
-        <polyline points="${line}" />
-        ${coords.filter((point) => point.y !== null).map((point) => `<g class="manager-sparkline-point${point.comments ? ' has-comment' : ''}${metric?.type === 'planFact' ? getPlanFactHealthClass(point.value) : ''}"><title>${escapeHtml(getManagerNumericPointTitle(point))}</title><circle cx="${point.x}" cy="${point.y}" r="4"></circle><text x="${point.x}" y="${Math.max(12, point.y - 10)}" text-anchor="middle">${escapeHtml(point.display)}</text>${point.comments ? `<text class="manager-sparkline-comment" x="${point.x + 8}" y="${Math.max(12, point.y - 8)}" aria-hidden="true">💬</text>` : ''}</g>`).join('')}
+      <svg role="img" aria-hidden="true" focusable="false">
+        <defs>${gradients}</defs>
+        <line x1="${50 / points.length}%" y1="${height - padding}" x2="${100 - (50 / points.length)}%" y2="${height - padding}" />
+        ${segments}
+        ${plottedCoords.map((point) => `<g class="manager-sparkline-point${point.comments ? ' has-comment' : ''}${metric?.type === 'planFact' ? getPlanFactHealthClass(point.value) : ''}"><title>${escapeHtml(getManagerNumericPointTitle(point))}</title><circle cx="${point.x}" cy="${point.y}" r="4"></circle><text x="${point.x}" y="${Math.max(12, point.y - 10)}" text-anchor="middle">${escapeHtml(point.display)}</text>${point.comments ? `<text class="manager-sparkline-comment" x="${point.x}" dx="8" y="${Math.max(12, point.y - 8)}" aria-hidden="true">💬</text>` : ''}</g>`).join('')}
       </svg>
     </div>`;
+}
+
+function getManagerSparklineColor(value, metric) {
+  if (metric?.type !== 'planFact' || !Number.isFinite(value)) return SPARKLINE_UNKNOWN_COLOR;
+  if (value > 85) return '#29a66f';
+  if (value > 70) return '#f2b705';
+  return '#ef476f';
 }
 
 function getManagerNumericValue(row, metric) {

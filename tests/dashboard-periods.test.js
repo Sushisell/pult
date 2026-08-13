@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { filterWeekendDashboardStates, getDashboardPeriods } from '../src/dashboard-periods.js';
+import { calculateDashboardIndexes, filterWeekendDashboardStates, getCompletionZone, getDashboardPeriods } from '../src/dashboard-periods.js';
 
 describe('dashboard history periods', () => {
   it('returns five weeks in chronological order through the selected week', () => {
@@ -65,5 +65,30 @@ describe('weekend dashboard states', () => {
     const weekly = { ...state('2026-08-08'), metric: { category: 'weekly', weekendRequired: false } };
 
     assert.deepEqual(filterWeekendDashboardStates([weekday, weekly]), [weekday, weekly]);
+  });
+});
+
+describe('dashboard indexes', () => {
+  it('calculates health only from filled values and completion from all required values', () => {
+    const states = [
+      { status: 'done' },
+      { status: 'fixed' },
+      { status: 'issue' },
+      { status: 'empty' },
+    ];
+
+    assert.deepEqual(calculateDashboardIndexes(states), {
+      health: 67,
+      completion: 75,
+      filled: 3,
+      total: 4,
+    });
+  });
+
+  it('uses red below 85%, yellow below 95%, and green from 95%', () => {
+    assert.equal(getCompletionZone(84), 'danger');
+    assert.equal(getCompletionZone(85), 'warning');
+    assert.equal(getCompletionZone(94), 'warning');
+    assert.equal(getCompletionZone(95), 'success');
   });
 });

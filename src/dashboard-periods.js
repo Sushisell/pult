@@ -39,6 +39,25 @@ export function filterWeekendDashboardStates(states) {
   ));
 }
 
+export function calculateDashboardIndexes(states) {
+  const total = states.length;
+  const filled = states.filter((entry) => entry.status !== 'empty').length;
+  const issues = states.filter((entry) => entry.status === 'issue').length;
+
+  return {
+    health: filled === 0 ? 0 : Math.round(((filled - issues) / filled) * 100),
+    completion: total === 0 ? 0 : Math.round((filled / total) * 100),
+    filled,
+    total,
+  };
+}
+
+export function getCompletionZone(completion) {
+  if (completion < 85) return 'danger';
+  if (completion < 95) return 'warning';
+  return 'success';
+}
+
 function isWeekendISODate(date) {
   const day = new Date(`${date}T00:00:00.000Z`).getUTCDay();
   return day === 0 || day === 6;
