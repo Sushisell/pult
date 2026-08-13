@@ -1,7 +1,7 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.29';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.29';
-import { APP_VERSION } from './version.js?v=0.1.29';
-import { calculateDashboardIndexes, filterWeekendDashboardStates, getCompletionZone, getDashboardPeriods } from './dashboard-periods.js?v=0.1.29';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.30';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.30';
+import { APP_VERSION } from './version.js?v=0.1.30';
+import { calculateDashboardIndexes, filterWeekendDashboardStates, getCompletionZone, getDashboardPeriods } from './dashboard-periods.js?v=0.1.30';
 import {
   buildCsv,
   buildDataRows,
@@ -24,7 +24,7 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.29';
+} from './storage.js?v=0.1.30';
 
 const COMMENT_MAX_LENGTH = 200;
 const URL_STATE_KEYS = ['date', 'department', 'owner', 'view'];
@@ -579,8 +579,91 @@ function renderManagerDashboard(employee, { isAvailable = false } = {}) {
     createManagerHero(employee, dashboard),
     createManagerFrequencyFilters(),
     createManagerKpiGrid(dashboard),
-    createManagerSections(dashboard),
+    isChiefExecutive(employee) ? createExecutiveDashboard(team) : createManagerSections(dashboard),
   );
+}
+
+function isChiefExecutive(employee) {
+  return normalizeText(employee?.role).includes('генеральный директор');
+}
+
+function createExecutiveDashboard(team) {
+  const employeeRows = team.map((employee) => {
+    const metricStates = filterWeekendDashboardStates(
+      getSelectedDashboardCategories().flatMap((category) => buildDashboardFrequencyStates([employee], category)),
+    );
+    return { employee, metricStates, totals: getDashboardTotals(metricStates) };
+  });
+  const departmentGroups = new Map();
+
+  for (const row of employeeRows) {
+    const department = row.employee.department || 'Без отдела';
+    const current = departmentGroups.get(department) ?? { department, states: [], employees: 0 };
+    current.states.push(...row.metricStates);
+    current.employees += 1;
+    departmentGroups.set(department, current);
+  }
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'executive-dashboard';
+  wrapper.innerHTML = `
+    <section class="executive-overview" aria-labelledby="executive-overview-title">
+      <div class="executive-section-heading">
+        <div><p class="manager-eyebrow">Общая картина</p><h3 id="executive-overview-title">Все отделы</h3></div>
+        <span>${departmentGroups.size} ${getRussianCountLabel(departmentGroups.size, ['отдел', 'отдела', 'отделов'])}</span>
+      </div>
+      <div class="executive-department-grid">
+        ${[...departmentGroups.values()].sort((a, b) => a.department.localeCompare(b.department, 'ru')).map((group) => {
+          const totals = getDashboardTotals(group.states);
+          return `<article class="executive-department-card">
+            <span>${escapeHtml(group.department)}</span>
+            <strong>${totals.completion}%</strong>
+            <small>Заполнено ${totals.filled} из ${totals.total} метрик · ${group.employees} ${getRussianCountLabel(group.employees, ['сотрудник', 'сотрудника', 'сотрудников'])}</small>
+            <div class="manager-progress" aria-label="Заполняемость отдела ${escapeHtml(group.department)}: ${totals.completion}%"><span style="width:${totals.completion}%"></span></div>
+          </article>`;
+        }).join('')}
+      </div>
+    </section>
+    <section class="executive-table-card" aria-labelledby="executive-table-title">
+      <div class="executive-section-heading">
+        <div><p class="manager-eyebrow">Команда</p><h3 id="executive-table-title">Показатели сотрудников</h3></div>
+        <span>${employeeRows.length} ${getRussianCountLabel(employeeRows.length, ['сотрудник', 'сотрудника', 'сотрудников'])}</span>
+      </div>
+      <div class="executive-table-wrap">
+        <table class="executive-table">
+          <thead><tr><th scope="col">ФИО сотрудника</th><th scope="col">Отдел</th><th scope="col">Индекс здоровья компании</th><th scope="col">Индекс заполняемости</th><th scope="col">Метрики</th></tr></thead>
+          <tbody>${employeeRows.map(({ employee, totals }) => `
+            <tr>
+              <th scope="row"><span class="executive-avatar" aria-hidden="true">${escapeHtml(getEmployeeInitials(employee.fullName))}</span><span>${escapeHtml(employee.fullName)}</span></th>
+              <td>${escapeHtml(employee.department || 'Без отдела')}</td>
+              <td>${createExecutiveIndexBadge(totals.health, 'health')}</td>
+              <td>${createExecutiveIndexBadge(totals.completion, 'completion')}</td>
+              <td><strong>${totals.filled}</strong><small> из ${totals.total}</small></td>
+            </tr>`).join('')}</tbody>
+        </table>
+      </div>
+    </section>`;
+  return wrapper;
+}
+
+function createExecutiveIndexBadge(value, type) {
+  const zone = type === 'completion'
+    ? getCompletionZone(value)
+    : value >= 85 ? 'success' : value >= 70 ? 'warning' : 'danger';
+  return `<span class="executive-index executive-index-${zone}"><b>${value}%</b><i style="--index:${value}%"></i></span>`;
+}
+
+function getEmployeeInitials(fullName) {
+  return String(fullName ?? '').split(/\s+/u).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || '—';
+}
+
+function getRussianCountLabel(count, [one, few, many]) {
+  const mod100 = count % 100;
+  const mod10 = count % 10;
+  if (mod100 >= 11 && mod100 <= 14) return many;
+  if (mod10 === 1) return one;
+  if (mod10 >= 2 && mod10 <= 4) return few;
+  return many;
 }
 
 function buildManagerMetricsDashboard(team) {
