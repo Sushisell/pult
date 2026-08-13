@@ -711,7 +711,8 @@ textarea {
   cursor: pointer;
 }
 
-.frequency-filter[aria-pressed="true"] {
+.frequency-filter[aria-pressed="true"],
+.frequency-filter[aria-checked="true"] {
   border-color: #ef476f;
   color: #ffffff;
   background: #ef476f;
@@ -937,6 +938,21 @@ textarea {
 }
 
 .manager-health-card-danger small { color: #d92938; }
+
+.manager-health-card-empty,
+.manager-kpi-empty {
+  border-color: #dfe2ea;
+  color: #838796;
+  background: #f4f5f7;
+}
+
+.manager-health-card-empty small,
+.executive-department-index.is-empty strong,
+.executive-department-index.is-empty em,
+.executive-index-empty b,
+.executive-metrics-empty strong {
+  color: #838796;
+}
 
 .manager-kpi-grid {
   display: grid;

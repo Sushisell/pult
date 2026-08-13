@@ -84,6 +84,18 @@ export function isRetailEmployee(employee) {
     .some((value) => normalizeText(value).includes('розница'));
 }
 
+export function getDashboardMetricOwners(employee, dashboardEmployees = []) {
+  if (!employee) return [];
+  const isOksEmployee = [employee.department, employee.subdepartment]
+    .some((value) => normalizeText(value).includes('окс'));
+  if (!isOksEmployee) return [employee];
+
+  return dashboardEmployees.filter((teammate) => (
+    [teammate.department, teammate.subdepartment].some((value) => normalizeText(value).includes('окс'))
+    && employeesShareRole(employee, teammate)
+  ));
+}
+
 // Строит ветку оргструктуры только по колонкам «Роль» и «Руководитель» листа
 // «Инфо». Колонка руководителя в строках метрик описывает саму метрику, а не
 // подчинение сотрудника, поэтому в построении команды не участвует.
@@ -130,6 +142,18 @@ export function getManagedEmployees(manager, organizationRows = INFO_ROWS) {
     seenNames.add(name);
     return true;
   });
+}
+
+export function getDashboardEmployees(manager, organizationRows = INFO_ROWS) {
+  const managedEmployees = getManagedEmployees(manager, organizationRows);
+  if (!normalizeText(manager?.role).includes('генеральный директор')) {
+    return manager ? [manager, ...managedEmployees] : [];
+  }
+
+  const executiveDepartment = normalizeText(manager.department);
+  return managedEmployees.filter((employee) => (
+    !executiveDepartment || normalizeText(employee.department) !== executiveDepartment
+  ));
 }
 
 // Возвращает строки в порядке оргструктуры из «Инфо»: руководитель, затем вся

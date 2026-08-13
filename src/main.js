@@ -1,7 +1,7 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, getOrganizationHierarchy, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.32';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.32';
-import { APP_VERSION } from './version.js?v=0.1.32';
-import { calculateDashboardIndexes, filterWeekendDashboardStates, getCompletionZone, getDashboardPeriods, getPerformanceColor } from './dashboard-periods.js?v=0.1.32';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getDashboardEmployees as getDashboardTeam, getDashboardMetricOwners, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, getOrganizationHierarchy, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.35';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.35';
+import { APP_VERSION } from './version.js?v=0.1.35';
+import { calculateDashboardIndexes, filterWeekendDashboardStates, getCompletionZone, getDashboardPeriods, getPerformanceColor } from './dashboard-periods.js?v=0.1.35';
 import {
   buildCsv,
   buildDataRows,
@@ -24,7 +24,7 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.32';
+} from './storage.js?v=0.1.35';
 
 const COMMENT_MAX_LENGTH = 200;
 const URL_STATE_KEYS = ['date', 'department', 'owner', 'view'];
@@ -38,7 +38,7 @@ const state = {
   reports: {},
   date: todayISO(),
   frequencyFilter: 'all',
-  dashboardFrequencyFilters: new Set(CATEGORIES.map((category) => category.id)),
+  dashboardFrequencyFilter: CATEGORIES[0]?.id ?? 'daily',
   activeView: 'report',
   report: null,
   department: '',
@@ -610,8 +610,9 @@ function buildExecutiveMetricsDashboard(team) {
 
 function createExecutiveDashboard({ team, departmentRows }) {
   const employeeRows = team.map((employee) => {
+    const metricOwners = getDashboardMetricOwners(employee, team);
     const metricStates = filterWeekendDashboardStates(
-      getSelectedDashboardCategories().flatMap((category) => buildDashboardFrequencyStates([employee], category)),
+      getSelectedDashboardCategories().flatMap((category) => buildDashboardFrequencyStates(metricOwners, category)),
     );
     return { employee, totals: getDashboardTotals(metricStates) };
   });
@@ -636,12 +637,14 @@ function createExecutiveDepartment(group, employeeRows, isOpen) {
   const rows = getOrganizationHierarchy(group.employees)
     .map(({ employee, depth }) => ({ employee, depth, totals: totalsByEmployee.get(employee) }));
   const totals = group.totals;
+  const health = getDashboardPercent(totals, 'health');
+  const completion = getDashboardPercent(totals, 'completion');
   return `<details class="executive-department-card"${isOpen ? ' open' : ''}>
     <summary>
       <span class="executive-department-toggle" aria-hidden="true"></span>
       <span class="executive-department-name">${escapeHtml(group.department)}<small>${group.employees.length} ${getRussianCountLabel(group.employees.length, ['сотрудник', 'сотрудника', 'сотрудников'])}</small></span>
-      <span class="executive-department-index" style="--index-color:${getPerformanceColor(totals.health)}"><small>Индекс здоровья</small><strong>${totals.health}%</strong></span>
-      <span class="executive-department-index" style="--index-color:${getPerformanceColor(totals.completion)}"><small>Индекс заполняемости</small><strong>${totals.completion}%</strong><em>${totals.filled} из ${totals.total} метрик</em></span>
+      <span class="executive-department-index${health === null ? ' is-empty' : ''}" style="--index-color:${health === null ? '#aeb4c2' : getPerformanceColor(health)}"><small>Индекс здоровья</small><strong>${health === null ? '—' : `${health}%`}</strong></span>
+      <span class="executive-department-index${completion === null ? ' is-empty' : ''}" style="--index-color:${completion === null ? '#aeb4c2' : getPerformanceColor(completion)}"><small>Индекс заполняемости</small><strong>${completion === null ? '—' : `${completion}%`}</strong><em>${totals.total === 0 && totals.filled === 0 ? '—' : `${totals.filled} из ${totals.total} метрик`}</em></span>
     </summary>
     <div class="executive-department-body">
       <div class="executive-table-wrap"><table class="executive-table">
@@ -649,9 +652,9 @@ function createExecutiveDepartment(group, employeeRows, isOpen) {
         <tbody>${rows.map(({ employee, depth, totals: employeeTotals }) => `<tr>
             <th scope="row" style="--employee-depth:${depth}"><span class="executive-avatar" aria-hidden="true">${escapeHtml(getEmployeeInitials(employee.fullName))}</span><span>${escapeHtml(employee.fullName)}${depth === 0 ? '<small>Руководитель отдела</small>' : ''}</span></th>
             <td>${escapeHtml(employee.role || 'Должность не указана')}</td>
-            <td>${createExecutiveIndexBadge(employeeTotals.health, 'health')}</td>
-            <td>${createExecutiveIndexBadge(employeeTotals.completion, 'completion')}</td>
-            <td><strong>${employeeTotals.filled}</strong><small> из ${employeeTotals.total}</small></td>
+            <td>${createExecutiveIndexBadge(getDashboardPercent(employeeTotals, 'health'), 'health')}</td>
+            <td>${createExecutiveIndexBadge(getDashboardPercent(employeeTotals, 'completion'), 'completion')}</td>
+            <td class="${employeeTotals.total === 0 && employeeTotals.filled === 0 ? 'executive-metrics-empty' : ''}">${employeeTotals.total === 0 && employeeTotals.filled === 0 ? '<strong>—</strong>' : `<strong>${employeeTotals.filled}</strong><small> из ${employeeTotals.total}</small>`}</td>
           </tr>`).join('')}</tbody>
       </table></div>
     </div>
@@ -660,10 +663,15 @@ function createExecutiveDepartment(group, employeeRows, isOpen) {
 }
 
 function createExecutiveIndexBadge(value, type) {
+  if (value === null) return '<span class="executive-index executive-index-empty"><b>—</b><i></i></span>';
   const zone = type === 'completion'
     ? getCompletionZone(value)
     : value >= 85 ? 'success' : value >= 70 ? 'warning' : 'danger';
   return `<span class="executive-index executive-index-${zone}" style="--index-color:${getPerformanceColor(value)}"><b>${value}%</b><i style="--index:${value}%"></i></span>`;
+}
+
+function getDashboardPercent(totals, key) {
+  return totals.total === 0 && totals.filled === 0 ? null : totals[key];
 }
 
 function getEmployeeInitials(fullName) {
@@ -697,8 +705,8 @@ function buildManagerMetricsDashboard(team) {
 }
 
 function getSelectedDashboardCategories() {
-  const selected = CATEGORIES.filter((category) => state.dashboardFrequencyFilters.has(category.id));
-  return selected.length > 0 ? selected : CATEGORIES;
+  const selected = CATEGORIES.find((category) => category.id === state.dashboardFrequencyFilter);
+  return selected ? [selected] : CATEGORIES.slice(0, 1);
 }
 
 function buildDashboardFrequencyStates(team, category) {
@@ -792,7 +800,9 @@ function getDashboardTotals(states) {
 function createManagerHero(employee, dashboard) {
   const hero = document.createElement('div');
   hero.className = 'manager-hero';
-  const completionZone = getCompletionZone(dashboard.totals.completion);
+  const hasMetrics = dashboard.totals.total > 0 || dashboard.totals.filled > 0;
+  const completionZone = hasMetrics ? getCompletionZone(dashboard.totals.completion) : 'empty';
+  const healthZone = !hasMetrics ? 'empty' : dashboard.totals.health >= 85 ? 'success' : dashboard.totals.health >= 70 ? 'warning' : 'danger';
   hero.innerHTML = `
     <div>
       <p class="manager-eyebrow">Дашборд метрик</p>
@@ -800,15 +810,15 @@ function createManagerHero(employee, dashboard) {
       <span>${getManagedEmployees(employee).length > 0 ? 'Состояние команды и личных метрик' : 'Состояние личных метрик'} на ${escapeHtml(formatRuDate(state.date))}</span>
     </div>
     <div class="manager-index-grid">
-      <div class="manager-health-card manager-health-card-${dashboard.totals.health >= 85 ? 'success' : dashboard.totals.health >= 70 ? 'warning' : 'danger'}">
+      <div class="manager-health-card manager-health-card-${healthZone}">
         <span>Индекс здоровья процессов</span>
-        <strong>${dashboard.totals.health}%</strong>
-        <small>${dashboard.totals.health >= 85 ? 'Система работает штатно' : dashboard.totals.health >= 70 ? 'Есть зоны внимания' : 'Нужна реакция руководителя'}</small>
+        <strong>${hasMetrics ? `${dashboard.totals.health}%` : '—'}</strong>
+        <small>${hasMetrics ? dashboard.totals.health >= 85 ? 'Система работает штатно' : dashboard.totals.health >= 70 ? 'Есть зоны внимания' : 'Нужна реакция руководителя' : 'Нет метрик для оценки'}</small>
       </div>
       <div class="manager-health-card manager-health-card-${completionZone}">
         <span>Индекс заполняемости</span>
-        <strong>${dashboard.totals.completion}%</strong>
-        <small>${dashboard.totals.filled} из ${dashboard.totals.total} метрик заполнено</small>
+        <strong>${hasMetrics ? `${dashboard.totals.completion}%` : '—'}</strong>
+        <small>${hasMetrics ? `${dashboard.totals.filled} из ${dashboard.totals.total} метрик заполнено` : 'Нет метрик для заполнения'}</small>
       </div>
     </div>
   `;
@@ -819,19 +829,17 @@ function createManagerFrequencyFilters() {
   const wrapper = document.createElement('div');
   wrapper.className = 'manager-frequency-filters';
   wrapper.setAttribute('aria-label', 'Диаграммы для дашборда руководителя');
+  wrapper.setAttribute('role', 'radiogroup');
 
   for (const category of CATEGORIES) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'frequency-filter';
     button.textContent = `${category.icon} ${category.label}`;
-    button.setAttribute('aria-pressed', String(state.dashboardFrequencyFilters.has(category.id)));
+    button.setAttribute('role', 'radio');
+    button.setAttribute('aria-checked', String(state.dashboardFrequencyFilter === category.id));
     button.addEventListener('click', () => {
-      if (state.dashboardFrequencyFilters.has(category.id) && state.dashboardFrequencyFilters.size > 1) {
-        state.dashboardFrequencyFilters.delete(category.id);
-      } else {
-        state.dashboardFrequencyFilters.add(category.id);
-      }
+      state.dashboardFrequencyFilter = category.id;
       render();
     });
     wrapper.append(button);
@@ -843,6 +851,7 @@ function createManagerFrequencyFilters() {
 function createManagerKpiGrid({ totals }) {
   const grid = document.createElement('div');
   grid.className = 'manager-kpi-grid';
+  const hasMetrics = totals.total > 0 || totals.filled > 0;
   const items = [
     ['Всего метрик', totals.total, 'total'],
     ['Все ок', totals.done, 'done'],
@@ -851,9 +860,9 @@ function createManagerKpiGrid({ totals }) {
     ['Не заполнено', totals.empty, 'empty'],
   ];
   grid.innerHTML = items.map(([label, value, status]) => `
-    <article class="manager-kpi manager-kpi-${status}">
+    <article class="manager-kpi manager-kpi-${status}${hasMetrics ? '' : ' manager-kpi-empty'}">
       <span>${escapeHtml(label)}</span>
-      <strong>${value}</strong>
+      <strong>${hasMetrics ? value : '—'}</strong>
     </article>
   `).join('');
   return grid;
@@ -1342,7 +1351,7 @@ function getManagerMetricDetail(row, metric, filled) {
 
 function getDashboardEmployees(employee) {
   const organizationRows = state.catalog.headcountRows ?? state.catalog.infoRows;
-  return [employee, ...getManagedEmployees(employee, organizationRows)];
+  return getDashboardTeam(employee, organizationRows);
 }
 
 function getDashboardHeadcountRows() {
