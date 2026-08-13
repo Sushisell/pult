@@ -1640,6 +1640,17 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
   transform: none;
 }
 
+/* The first metric has no table space above it, so its comment used to be
+   clipped by the horizontally scrollable matrix wrapper. Open that tooltip
+   downwards instead, where the full text remains inside the scroll area. */
+.manager-matrix tbody tr:first-child .manager-dot[data-tooltip]:hover::after,
+.manager-matrix tbody tr:first-child .manager-dot[data-tooltip]:focus-visible::after,
+.manager-matrix tbody tr:first-child .manager-numeric-dot[data-tooltip]:hover::after,
+.manager-matrix tbody tr:first-child .manager-numeric-dot[data-tooltip]:focus-visible::after {
+  top: calc(100% + 14px);
+  bottom: auto;
+}
+
 .manager-subdepartment-list {
   display: grid;
   gap: 18px;
