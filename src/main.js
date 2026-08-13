@@ -1,7 +1,7 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.25';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.25';
-import { APP_VERSION } from './version.js?v=0.1.25';
-import { filterWeekendDashboardStates, getDashboardPeriods } from './dashboard-periods.js?v=0.1.25';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.26';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.26';
+import { APP_VERSION } from './version.js?v=0.1.26';
+import { filterWeekendDashboardStates, getDashboardPeriods } from './dashboard-periods.js?v=0.1.26';
 import {
   buildCsv,
   buildDataRows,
@@ -24,10 +24,11 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.25';
+} from './storage.js?v=0.1.26';
 
 const COMMENT_MAX_LENGTH = 200;
 const URL_STATE_KEYS = ['date', 'department', 'owner', 'view'];
+const managerTooltip = createManagerTooltip();
 
 const state = {
   localReports: loadReports(),
@@ -79,6 +80,62 @@ applyInitialUrlDate();
 state.report = createEditableReport(state.date, '');
 elements.dateInput.value = state.date;
 if (elements.appVersion) elements.appVersion.textContent = `v${APP_VERSION}`;
+
+function createManagerTooltip() {
+  const tooltip = document.createElement('div');
+  tooltip.className = 'manager-tooltip';
+  tooltip.setAttribute('role', 'tooltip');
+  tooltip.hidden = true;
+  document.body.append(tooltip);
+
+  const show = (target) => {
+    const content = target?.dataset?.tooltip;
+    if (!content) return;
+    tooltip.textContent = content;
+    tooltip.hidden = false;
+    tooltip.dataset.owner = 'active';
+
+    const anchor = target.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect();
+    const viewportGap = 12;
+    const preferredLeft = anchor.left + (anchor.width - tooltipRect.width) / 2;
+    const left = Math.min(
+      window.innerWidth - tooltipRect.width - viewportGap,
+      Math.max(viewportGap, preferredLeft),
+    );
+    const fitsAbove = anchor.top >= tooltipRect.height + viewportGap * 2;
+    const top = fitsAbove
+      ? anchor.top - tooltipRect.height - viewportGap
+      : anchor.bottom + viewportGap;
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${Math.max(viewportGap, top)}px`;
+  };
+
+  const hide = () => {
+    tooltip.hidden = true;
+    delete tooltip.dataset.owner;
+  };
+
+  document.addEventListener('pointerover', (event) => {
+    const target = event.target.closest?.('[data-tooltip]');
+    if (target) show(target);
+  });
+  document.addEventListener('pointerout', (event) => {
+    const target = event.target.closest?.('[data-tooltip]');
+    if (target && !target.contains(event.relatedTarget)) hide();
+  });
+  document.addEventListener('focusin', (event) => {
+    const target = event.target.closest?.('[data-tooltip]');
+    if (target) show(target);
+  });
+  document.addEventListener('focusout', (event) => {
+    if (event.target.closest?.('[data-tooltip]')) hide();
+  });
+  window.addEventListener('scroll', hide, true);
+  window.addEventListener('resize', hide);
+
+  return tooltip;
+}
 
 function appendOwnerOption(owner) {
   if (!owner || !elements.ownerInput) return;

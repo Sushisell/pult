@@ -1607,18 +1607,11 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
   line-height: 1;
 }
 
-.manager-dot[data-tooltip]:hover::after,
-.manager-dot[data-tooltip]:focus-visible::after,
-.manager-numeric-dot[data-tooltip]:hover::after,
-.manager-numeric-dot[data-tooltip]:focus-visible::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% + 14px);
-  z-index: 20;
+.manager-tooltip {
+  position: fixed;
+  z-index: 1000;
   width: max-content;
-  max-width: min(320px, 72vw);
-  transform: translateX(-50%);
+  max-width: min(420px, calc(100vw - 24px));
   border: 1px solid #e3e7ef;
   border-radius: 14px;
   padding: 12px 14px;
@@ -1633,22 +1626,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
   pointer-events: none;
 }
 
-
-.manager-matrix td:nth-child(2) .manager-dot[data-tooltip]:hover::after,
-.manager-matrix td:nth-child(2) .manager-dot[data-tooltip]:focus-visible::after {
-  left: 0;
-  transform: none;
-}
-
-/* The first metric has no table space above it, so its comment used to be
-   clipped by the horizontally scrollable matrix wrapper. Open that tooltip
-   downwards instead, where the full text remains inside the scroll area. */
-.manager-matrix tbody tr:first-child .manager-dot[data-tooltip]:hover::after,
-.manager-matrix tbody tr:first-child .manager-dot[data-tooltip]:focus-visible::after,
-.manager-matrix tbody tr:first-child .manager-numeric-dot[data-tooltip]:hover::after,
-.manager-matrix tbody tr:first-child .manager-numeric-dot[data-tooltip]:focus-visible::after {
-  top: calc(100% + 14px);
-  bottom: auto;
+.manager-tooltip[hidden] {
+  display: none;
 }
 
 .manager-subdepartment-list {
@@ -1717,13 +1696,6 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
   .manager-subdepartment .manager-progress {
     margin: 0 14px 14px;
   }
-}
-
-.manager-matrix td:last-child .manager-dot[data-tooltip]:hover::after,
-.manager-matrix td:last-child .manager-dot[data-tooltip]:focus-visible::after {
-  right: 0;
-  left: auto;
-  transform: none;
 }
 
 .manager-dot[data-tooltip]:hover::before,
