@@ -1,7 +1,7 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.24';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.24';
-import { APP_VERSION } from './version.js?v=0.1.24';
-import { filterWeekendDashboardStates, getDashboardPeriods } from './dashboard-periods.js?v=0.1.24';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.25';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.25';
+import { APP_VERSION } from './version.js?v=0.1.25';
+import { filterWeekendDashboardStates, getDashboardPeriods } from './dashboard-periods.js?v=0.1.25';
 import {
   buildCsv,
   buildDataRows,
@@ -24,7 +24,7 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.24';
+} from './storage.js?v=0.1.25';
 
 const COMMENT_MAX_LENGTH = 200;
 const URL_STATE_KEYS = ['date', 'department', 'owner', 'view'];
