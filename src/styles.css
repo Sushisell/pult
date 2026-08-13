@@ -865,10 +865,16 @@ textarea {
 
 .manager-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 580px);
   gap: 18px;
   align-items: stretch;
   margin-bottom: 18px;
+}
+
+.manager-index-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .manager-eyebrow {
@@ -916,9 +922,21 @@ textarea {
   line-height: 1;
 }
 
-.manager-health-card small {
+.manager-health-card-success small {
   color: #29a66f;
 }
+
+.manager-health-card-warning {
+  background: radial-gradient(circle at 24px 24px, rgb(245 169 21 / 16%), transparent 80px), #ffffff;
+}
+
+.manager-health-card-warning small { color: #b87900; }
+
+.manager-health-card-danger {
+  background: radial-gradient(circle at 24px 24px, rgb(239 47 61 / 14%), transparent 80px), #ffffff;
+}
+
+.manager-health-card-danger small { color: #d92938; }
 
 .manager-kpi-grid {
   display: grid;
@@ -1095,6 +1113,10 @@ textarea {
 
   .manager-kpi-grid,
   .manager-role-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .manager-index-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -1529,12 +1551,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
   stroke-width: 2;
 }
 
-.manager-sparkline polyline {
-  fill: none;
-  stroke: #ef476f;
+.manager-sparkline .manager-sparkline-segment {
   stroke-width: 4;
   stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 .manager-sparkline circle {
