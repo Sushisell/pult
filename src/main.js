@@ -1,7 +1,7 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getDashboardEmployees as getDashboardTeam, getDashboardMetricOwners, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, getOrganizationHierarchy, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.35';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.35';
-import { APP_VERSION } from './version.js?v=0.1.35';
-import { calculateDashboardIndexes, filterWeekendDashboardStates, getCompletionZone, getDashboardPeriods, getPerformanceColor } from './dashboard-periods.js?v=0.1.35';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getDashboardEmployees as getDashboardTeam, getDashboardMetricOwners, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, getOrganizationHierarchy, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.36';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.36';
+import { APP_VERSION } from './version.js?v=0.1.36';
+import { calculateDashboardIndexes, filterWeekendDashboardStates, getCompletionZone, getDashboardPeriods, getPerformanceColor, getProblemDashboardStates } from './dashboard-periods.js?v=0.1.36';
 import {
   buildCsv,
   buildDataRows,
@@ -24,7 +24,7 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.35';
+} from './storage.js?v=0.1.36';
 
 const COMMENT_MAX_LENGTH = 200;
 const URL_STATE_KEYS = ['date', 'department', 'owner', 'view'];
@@ -614,7 +614,7 @@ function createExecutiveDashboard({ team, departmentRows }) {
     const metricStates = filterWeekendDashboardStates(
       getSelectedDashboardCategories().flatMap((category) => buildDashboardFrequencyStates(metricOwners, category)),
     );
-    return { employee, totals: getDashboardTotals(metricStates) };
+    return { employee, metricStates, totals: getDashboardTotals(metricStates) };
   });
 
   const wrapper = document.createElement('div');
@@ -633,9 +633,9 @@ function createExecutiveDashboard({ team, departmentRows }) {
 }
 
 function createExecutiveDepartment(group, employeeRows, isOpen) {
-  const totalsByEmployee = new Map(employeeRows.map((row) => [row.employee, row.totals]));
+  const rowsByEmployee = new Map(employeeRows.map((row) => [row.employee, row]));
   const rows = getOrganizationHierarchy(group.employees)
-    .map(({ employee, depth }) => ({ employee, depth, totals: totalsByEmployee.get(employee) }));
+    .map(({ employee, depth }) => ({ employee, depth, ...rowsByEmployee.get(employee) }));
   const totals = group.totals;
   const health = getDashboardPercent(totals, 'health');
   const completion = getDashboardPercent(totals, 'completion');
@@ -649,17 +649,30 @@ function createExecutiveDepartment(group, employeeRows, isOpen) {
     <div class="executive-department-body">
       <div class="executive-table-wrap"><table class="executive-table">
         <thead><tr><th scope="col">Руководитель и сотрудники</th><th scope="col">Должность</th><th scope="col">Индекс здоровья</th><th scope="col">Заполняемость</th><th scope="col">Метрики</th></tr></thead>
-        <tbody>${rows.map(({ employee, depth, totals: employeeTotals }) => `<tr>
+        <tbody>${rows.map(({ employee, depth, totals: employeeTotals, metricStates }) => `<tr>
             <th scope="row" style="--employee-depth:${depth}"><span class="executive-avatar" aria-hidden="true">${escapeHtml(getEmployeeInitials(employee.fullName))}</span><span>${escapeHtml(employee.fullName)}${depth === 0 ? '<small>Руководитель отдела</small>' : ''}</span></th>
             <td>${escapeHtml(employee.role || 'Должность не указана')}</td>
             <td>${createExecutiveIndexBadge(getDashboardPercent(employeeTotals, 'health'), 'health')}</td>
             <td>${createExecutiveIndexBadge(getDashboardPercent(employeeTotals, 'completion'), 'completion')}</td>
             <td class="${employeeTotals.total === 0 && employeeTotals.filled === 0 ? 'executive-metrics-empty' : ''}">${employeeTotals.total === 0 && employeeTotals.filled === 0 ? '<strong>—</strong>' : `<strong>${employeeTotals.filled}</strong><small> из ${employeeTotals.total}</small>`}</td>
-          </tr>`).join('')}</tbody>
+          </tr>${createExecutiveProblemMetrics(metricStates)}`).join('')}</tbody>
       </table></div>
     </div>
     <div class="manager-progress" aria-label="Заполняемость отдела ${escapeHtml(group.department)}: ${totals.completion}%"><span style="width:${totals.completion}%"></span></div>
   </details>`;
+}
+
+function createExecutiveProblemMetrics(metricStates) {
+  const problems = getProblemDashboardStates(metricStates);
+  if (problems.length === 0) return '';
+  const emptyCount = problems.filter((entry) => entry.status === 'empty').length;
+  const issueCount = problems.length - emptyCount;
+  return `<tr class="executive-problem-row"><td colspan="5">
+    <div class="executive-problem-metrics">
+      <div class="executive-problem-summary"><strong>Требуют внимания: ${problems.length}</strong><span>${emptyCount} не заполнено · ${issueCount} ${getRussianCountLabel(issueCount, ['с ошибкой', 'с ошибками', 'с ошибками'])}</span></div>
+      <ul>${problems.map((entry) => `<li><span class="executive-problem-status executive-problem-status-${entry.status}">${entry.status === 'empty' ? 'Не заполнено' : 'Ошибка'}</span><strong>${escapeHtml(entry.metric.metric)}</strong><small>${escapeHtml(entry.period.label)}</small></li>`).join('')}</ul>
+    </div>
+  </td></tr>`;
 }
 
 function createExecutiveIndexBadge(value, type) {

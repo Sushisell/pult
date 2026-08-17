@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { calculateDashboardIndexes, filterWeekendDashboardStates, getCompletionZone, getDashboardPeriods, getPerformanceColor } from '../src/dashboard-periods.js';
+import { calculateDashboardIndexes, filterWeekendDashboardStates, getCompletionZone, getDashboardPeriods, getPerformanceColor, getProblemDashboardStates } from '../src/dashboard-periods.js';
 
 describe('dashboard history periods', () => {
   it('returns five weeks in chronological order through the selected week', () => {
@@ -69,6 +69,17 @@ describe('weekend dashboard states', () => {
 });
 
 describe('dashboard indexes', () => {
+  it('returns only metrics with errors or missing data for employee details', () => {
+    const states = [
+      { status: 'done', metric: 'ok' },
+      { status: 'fixed', metric: 'fixed' },
+      { status: 'issue', metric: 'issue' },
+      { status: 'empty', metric: 'empty' },
+    ];
+
+    assert.deepEqual(getProblemDashboardStates(states).map(({ metric }) => metric), ['issue', 'empty']);
+  });
+
   it('uses a continuous red-to-green scale above the bad zone', () => {
     assert.equal(getPerformanceColor(84), 'hsl(355 78% 45%)');
     assert.equal(getPerformanceColor(90), 'hsl(40 78% 45%)');
