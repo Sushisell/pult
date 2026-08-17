@@ -1,7 +1,7 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getDashboardEmployees as getDashboardTeam, getDashboardMetricOwners, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, getOrganizationHierarchy, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.36';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.36';
-import { APP_VERSION } from './version.js?v=0.1.36';
-import { calculateDashboardIndexes, filterWeekendDashboardStates, getCompletionZone, getDashboardPeriods, getPerformanceColor, getProblemDashboardStates } from './dashboard-periods.js?v=0.1.36';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getDashboardEmployees as getDashboardTeam, getDashboardMetricOwners, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, getOrganizationHierarchy, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.37';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.37';
+import { APP_VERSION } from './version.js?v=0.1.37';
+import { calculateDashboardIndexes, filterWeekendDashboardStates, getCompletionZone, getDashboardPeriods, getPerformanceColor, getProblemDashboardStates } from './dashboard-periods.js?v=0.1.37';
 import {
   buildCsv,
   buildDataRows,
@@ -24,7 +24,7 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.36';
+} from './storage.js?v=0.1.37';
 
 const COMMENT_MAX_LENGTH = 200;
 const URL_STATE_KEYS = ['date', 'department', 'owner', 'view'];
@@ -626,20 +626,20 @@ function createExecutiveDashboard({ team, departmentRows }) {
         <span>${departmentRows.length} ${getRussianCountLabel(departmentRows.length, ['отдел', 'отдела', 'отделов'])}</span>
       </div>
       <div class="executive-department-list">
-        ${departmentRows.map((group, index) => createExecutiveDepartment(group, employeeRows, index === 0)).join('')}
+        ${departmentRows.map((group) => createExecutiveDepartment(group, employeeRows)).join('')}
       </div>
     </section>`;
   return wrapper;
 }
 
-function createExecutiveDepartment(group, employeeRows, isOpen) {
+function createExecutiveDepartment(group, employeeRows) {
   const rowsByEmployee = new Map(employeeRows.map((row) => [row.employee, row]));
   const rows = getOrganizationHierarchy(group.employees)
     .map(({ employee, depth }) => ({ employee, depth, ...rowsByEmployee.get(employee) }));
   const totals = group.totals;
   const health = getDashboardPercent(totals, 'health');
   const completion = getDashboardPercent(totals, 'completion');
-  return `<details class="executive-department-card"${isOpen ? ' open' : ''}>
+  return `<details class="executive-department-card">
     <summary>
       <span class="executive-department-toggle" aria-hidden="true"></span>
       <span class="executive-department-name">${escapeHtml(group.department)}<small>${group.employees.length} ${getRussianCountLabel(group.employees.length, ['сотрудник', 'сотрудника', 'сотрудников'])}</small></span>
@@ -670,7 +670,15 @@ function createExecutiveProblemMetrics(metricStates) {
   return `<tr class="executive-problem-row"><td colspan="5">
     <div class="executive-problem-metrics">
       <div class="executive-problem-summary"><strong>Требуют внимания: ${problems.length}</strong><span>${emptyCount} не заполнено · ${issueCount} ${getRussianCountLabel(issueCount, ['с ошибкой', 'с ошибками', 'с ошибками'])}</span></div>
-      <ul>${problems.map((entry) => `<li><span class="executive-problem-status executive-problem-status-${entry.status}">${entry.status === 'empty' ? 'Не заполнено' : 'Ошибка'}</span><strong>${escapeHtml(entry.metric.metric)}</strong><small>${escapeHtml(entry.period.label)}</small></li>`).join('')}</ul>
+      <ul>${problems.map((entry) => {
+        const comment = limitComment(String(entry.row?.comment ?? '').trim());
+        const statusLabel = entry.status === 'empty' ? 'Не заполнено' : 'Ошибка';
+        return `<li class="executive-problem-item">
+          <span class="executive-problem-status executive-problem-status-${entry.status}"><i aria-hidden="true"></i>${statusLabel}</span>
+          <span class="executive-problem-content"><strong>${escapeHtml(entry.metric.metric)}</strong>${comment ? `<em><b>Комментарий:</b> ${escapeHtml(comment)}</em>` : ''}</span>
+          <time datetime="${escapeHtml(entry.period.start)}">${escapeHtml(entry.period.label)}</time>
+        </li>`;
+      }).join('')}</ul>
     </div>
   </td></tr>`;
 }
