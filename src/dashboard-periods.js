@@ -39,6 +39,10 @@ export function filterWeekendDashboardStates(states) {
   ));
 }
 
+export function getProblemDashboardStates(states) {
+  return states.filter((entry) => entry.status === 'issue' || entry.status === 'empty');
+}
+
 export function calculateDashboardIndexes(states) {
   const total = states.length;
   const filled = states.filter((entry) => entry.status !== 'empty').length;
