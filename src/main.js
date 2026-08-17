@@ -1,7 +1,7 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getDashboardEmployees as getDashboardTeam, getDashboardMetricOwners, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, getOrganizationHierarchy, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.38';
-import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.38';
-import { APP_VERSION } from './version.js?v=0.1.38';
-import { calculateDashboardIndexes, filterWeekendDashboardStates, getCompletionZone, getDashboardPeriods, getPerformanceColor } from './dashboard-periods.js?v=0.1.38';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getDashboardEmployees as getDashboardTeam, getDashboardMetricOwners, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, getOrganizationHierarchy, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.39';
+import { loadCatalog, submitDataRows } from './data-source.js?v=0.1.39';
+import { APP_VERSION } from './version.js?v=0.1.39';
+import { calculateDashboardIndexes, filterWeekendDashboardStates, getCompletionZone, getDashboardPeriods, getPerformanceColor, getProblemDashboardStates } from './dashboard-periods.js?v=0.1.39';
 import {
   buildCsv,
   buildDataRows,
@@ -24,7 +24,7 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.38';
+} from './storage.js?v=0.1.39';
 
 const COMMENT_MAX_LENGTH = 200;
 const URL_STATE_KEYS = ['date', 'department', 'owner', 'view'];
@@ -685,17 +685,24 @@ function groupExecutiveEmployeeRows(group, rows) {
 }
 
 function createExecutiveMetricMatrix(metricStates) {
-  if (metricStates.length === 0) return '';
+  const problemStates = getProblemDashboardStates(metricStates);
+  if (problemStates.length === 0) return '';
   const periods = getManagerSectionPeriods(metricStates);
-  const rows = getManagerMetricMatrixRows(metricStates, periods);
+  const rows = getManagerMetricMatrixRows(problemStates, periods);
   return `<tr class="executive-metric-row"><td colspan="5">
     <div class="manager-matrix-wrap executive-metric-matrix"><table class="manager-matrix">
+      <colgroup><col class="executive-metric-name-column">${periods.map(() => '<col class="executive-metric-date-column">').join('')}</colgroup>
       <thead><tr><th scope="col">Метрика</th>${periods.map((period) => `<th scope="col">${createManagerPeriodHeading(period)}</th>`).join('')}</tr></thead>
-      <tbody>${rows.map((row) => `<tr><th scope="row">${escapeHtml(row.metric.metric)}</th>${isNumericMetric(row.metric)
-        ? createManagerMatrixChartCell(row, periods)
-        : periods.map((period) => createManagerMatrixDotCell(row.byPeriod.get(period.id), row.metric, period)).join('')}</tr>`).join('')}</tbody>
+      <tbody>${rows.map((row) => `<tr><th scope="row">${escapeHtml(row.metric.metric)}</th>${periods.map((period) => createExecutiveProblemCell(row.byPeriod.get(period.id), row.metric, period)).join('')}</tr>`).join('')}</tbody>
     </table></div>
   </td></tr>`;
+}
+
+function createExecutiveProblemCell(cell, metric, period) {
+  if ((cell?.entries?.length ?? 0) === 0) {
+    return '<td class="executive-metric-no-problem" aria-label="Нет проблемы"></td>';
+  }
+  return createManagerMatrixDotCell(cell, metric, period);
 }
 
 function createExecutiveIndexBadge(value, type) {
