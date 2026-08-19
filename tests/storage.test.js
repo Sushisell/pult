@@ -669,6 +669,19 @@ describe('daily report storage helpers', () => {
     assert.equal(catalog.checklist[0].managerRole, 'Операционный директор');
   });
 
+  it('stops waiting for an unavailable catalog endpoint', async () => {
+    const catalog = await loadCatalog({
+      dataUrl: '/slow-workbook.json',
+      timeoutMs: 5,
+      fetchImpl: async (_url, { signal }) => new Promise((resolve, reject) => {
+        signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+      }),
+    });
+
+    assert.deepEqual(catalog.infoRows, []);
+    assert.deepEqual(catalog.checklist, []);
+  });
+
   it('submits Data sheet rows to a writable endpoint', async () => {
     let request;
     const result = await submitDataRows([{ date: '2026-06-01', owner: 'Анна', metric: 'Метрика', value: 'Все ок', comment: '' }], {
