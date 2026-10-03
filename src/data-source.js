@@ -1,12 +1,13 @@
-import { createCatalog } from './checklist.js?v=0.1.40';
+import { createCatalog } from './checklist.js?v=0.1.41';
 
 const DEFAULT_DATA_URL = './data/workbook.json';
-const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
+export const DEFAULT_LOAD_TIMEOUT_MS = 10_000;
+export const DEFAULT_SUBMIT_TIMEOUT_MS = 60_000;
 
 export async function loadCatalog({
   dataUrl = globalThis.window?.PULT_DATA_URL ?? DEFAULT_DATA_URL,
   fetchImpl = globalThis.fetch,
-  timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+  timeoutMs = DEFAULT_LOAD_TIMEOUT_MS,
 } = {}) {
   if (!dataUrl || typeof fetchImpl !== 'function') {
     return createCatalog();
@@ -26,7 +27,7 @@ export async function loadCatalog({
 export async function submitDataRows(dataRows, {
   dataUrl = globalThis.window?.PULT_DATA_URL ?? DEFAULT_DATA_URL,
   fetchImpl = globalThis.fetch,
-  timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+  timeoutMs = DEFAULT_SUBMIT_TIMEOUT_MS,
 } = {}) {
   if (!isWritableDataUrl(dataUrl) || typeof fetchImpl !== 'function' || dataRows.length === 0) {
     return { skipped: true };

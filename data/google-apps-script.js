@@ -122,9 +122,26 @@ function readDataRows_(sheet) {
 }
 
 function writeDataRows_(dataRows) {
+  if (!Array.isArray(dataRows) || dataRows.length === 0) return;
+
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30 * 1000);
+
+  try {
+    writeDataRowsLocked_(dataRows);
+    SpreadsheetApp.flush();
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function writeDataRowsLocked_(dataRows) {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = getOrCreateDataSheet_(spreadsheet);
   const rowsByKey = new Map(readExistingDataRowIndexes_(sheet));
+  const pendingInsertIndexes = new Map();
+  const updates = [];
+  const inserts = [];
 
   dataRows.forEach((row) => {
     const values = [row.date, row.owner, row.metric, row.value, row.comment, row.plan, row.fact].map((value) => String(value ?? '').trim());
@@ -132,12 +149,27 @@ function writeDataRows_(dataRows) {
     const key = getDataRowKey_(values[0], values[1], values[2]);
     const existingRow = rowsByKey.get(key);
     if (existingRow) {
-      sheet.getRange(existingRow, 1, 1, values.length).setValues([values]);
-    } else {
-      sheet.appendRow(values);
-      rowsByKey.set(key, sheet.getLastRow());
+      updates.push({ rowNumber: existingRow, values });
+      return;
     }
+
+    const pendingIndex = pendingInsertIndexes.get(key);
+    if (pendingIndex !== undefined) {
+      inserts[pendingIndex] = values;
+      return;
+    }
+
+    pendingInsertIndexes.set(key, inserts.length);
+    inserts.push(values);
   });
+
+  updates.forEach(({ rowNumber, values }) => {
+    sheet.getRange(rowNumber, 1, 1, values.length).setValues([values]);
+  });
+
+  if (inserts.length > 0) {
+    sheet.getRange(sheet.getLastRow() + 1, 1, inserts.length, inserts[0].length).setValues(inserts);
+  }
 }
 
 function getOrCreateDataSheet_(spreadsheet) {

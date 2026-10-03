@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { loadCatalog, submitDataRows } from '../src/data-source.js';
+import { DEFAULT_LOAD_TIMEOUT_MS, DEFAULT_SUBMIT_TIMEOUT_MS, loadCatalog, submitDataRows } from '../src/data-source.js';
 import { areAllMetricsSubmitted, buildCsv, buildDataRows, buildReportsFromDataRows, createEmptyReport, getCompletion, getDueMetricsForDate, getPendingFilledMetrics, getReportForDate, isMetricSubmitted, isReportSubmittedForCategory, makeReportKey, markReportMetricsSubmitted, markReportSubmittedForCategory, mergeReportFilledRows, reconcileSubmittedMetricsWithSheetReports, upsertReport } from '../src/storage.js';
 import { CHECKLIST, createCatalog, createChecklist, findEmployeeByFullName, getDashboardEmployees, getDashboardMetricOwners, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, getOrganizationHierarchy, groupMetricsByFrequency } from '../src/checklist.js';
 import { APP_VERSION } from '../src/version.js';
@@ -682,6 +682,11 @@ describe('daily report storage helpers', () => {
     assert.deepEqual(catalog.checklist, []);
   });
 
+  it('uses a longer timeout for report submission than catalog loading', () => {
+    assert.equal(DEFAULT_LOAD_TIMEOUT_MS, 10_000);
+    assert.equal(DEFAULT_SUBMIT_TIMEOUT_MS, 60_000);
+  });
+
   it('submits Data sheet rows to a writable endpoint', async () => {
     let request;
     const result = await submitDataRows([{ date: '2026-06-01', owner: 'Анна', metric: 'Метрика', value: 'Все ок', comment: '' }], {
@@ -743,6 +748,15 @@ describe('application version', () => {
     assert.match(appsScript, /managerRoleColumn:\s*10/);
     assert.match(appsScript, /weekendRequiredColumn:\s*14/);
     assert.match(appsScript, /filter\(\(row\) => row\.role\)/);
+  });
+
+  it('keeps Data sheet writes locked and batched in Apps Script', async () => {
+    const appsScript = await readFile(new URL('../data/google-apps-script.js', import.meta.url), 'utf8');
+
+    assert.match(appsScript, /LockService\.getDocumentLock\(\)/);
+    assert.match(appsScript, /lock\.waitLock\(30 \* 1000\)/);
+    assert.match(appsScript, /setValues\(inserts\)/);
+    assert.doesNotMatch(appsScript, /\.appendRow\(values\)/);
   });
 
   it('normalizes the weekend-required checkbox from metric data', () => {
