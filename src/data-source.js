@@ -1,21 +1,28 @@
-import { createCatalog } from './checklist.js?v=0.1.41';
+import { createCatalog } from './checklist.js?v=0.1.42';
 
 const DEFAULT_DATA_URL = './data/workbook.json';
-export const DEFAULT_LOAD_TIMEOUT_MS = 10_000;
+export const DEFAULT_LOAD_TIMEOUT_MS = 60_000;
 export const DEFAULT_SUBMIT_TIMEOUT_MS = 60_000;
+export const DEFAULT_LOAD_RETRY_COUNT = 2;
+export const DEFAULT_LOAD_RETRY_DELAY_MS = 1_500;
 
 export async function loadCatalog({
   dataUrl = globalThis.window?.PULT_DATA_URL ?? DEFAULT_DATA_URL,
   fetchImpl = globalThis.fetch,
   timeoutMs = DEFAULT_LOAD_TIMEOUT_MS,
+  retryCount = DEFAULT_LOAD_RETRY_COUNT,
+  retryDelayMs = DEFAULT_LOAD_RETRY_DELAY_MS,
 } = {}) {
   if (!dataUrl || typeof fetchImpl !== 'function') {
     return createCatalog();
   }
 
   try {
-    const response = await fetchWithTimeout(fetchImpl, dataUrl, { cache: 'no-store' }, timeoutMs);
-    if (!response.ok) throw new Error(`Не удалось загрузить данные: ${response.status}`);
+    const response = await fetchWithRetries(fetchImpl, dataUrl, { cache: 'no-store' }, {
+      timeoutMs,
+      retryCount,
+      retryDelayMs,
+    });
     const workbook = await response.json();
     return createCatalog(workbook);
   } catch (error) {
@@ -62,4 +69,33 @@ async function fetchWithTimeout(fetchImpl, url, options, timeoutMs) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function fetchWithRetries(fetchImpl, url, options, {
+  timeoutMs,
+  retryCount,
+  retryDelayMs,
+}) {
+  const attempts = Math.max(1, Number(retryCount) + 1);
+  let lastError;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await fetchWithTimeout(fetchImpl, url, options, timeoutMs);
+      if (response.ok) return response;
+      lastError = new Error(`Не удалось загрузить данные: ${response.status}`);
+    } catch (error) {
+      lastError = error;
+    }
+
+    if (attempt < attempts && retryDelayMs > 0) {
+      await delay(retryDelayMs);
+    }
+  }
+
+  throw lastError;
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

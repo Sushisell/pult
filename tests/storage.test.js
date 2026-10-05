@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { DEFAULT_LOAD_TIMEOUT_MS, DEFAULT_SUBMIT_TIMEOUT_MS, loadCatalog, submitDataRows } from '../src/data-source.js';
+import { DEFAULT_LOAD_RETRY_COUNT, DEFAULT_LOAD_TIMEOUT_MS, DEFAULT_SUBMIT_TIMEOUT_MS, loadCatalog, submitDataRows } from '../src/data-source.js';
 import { areAllMetricsSubmitted, buildCsv, buildDataRows, buildReportsFromDataRows, createEmptyReport, getCompletion, getDueMetricsForDate, getPendingFilledMetrics, getReportForDate, isMetricSubmitted, isReportSubmittedForCategory, makeReportKey, markReportMetricsSubmitted, markReportSubmittedForCategory, mergeReportFilledRows, reconcileSubmittedMetricsWithSheetReports, upsertReport } from '../src/storage.js';
 import { CHECKLIST, createCatalog, createChecklist, findEmployeeByFullName, getDashboardEmployees, getDashboardMetricOwners, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, getOrganizationHierarchy, groupMetricsByFrequency } from '../src/checklist.js';
 import { APP_VERSION } from '../src/version.js';
@@ -682,9 +682,10 @@ describe('daily report storage helpers', () => {
     assert.deepEqual(catalog.checklist, []);
   });
 
-  it('uses a longer timeout for report submission than catalog loading', () => {
-    assert.equal(DEFAULT_LOAD_TIMEOUT_MS, 10_000);
+  it('uses resilient defaults for catalog loading and report submission', () => {
+    assert.equal(DEFAULT_LOAD_TIMEOUT_MS, 60_000);
     assert.equal(DEFAULT_SUBMIT_TIMEOUT_MS, 60_000);
+    assert.equal(DEFAULT_LOAD_RETRY_COUNT, 2);
   });
 
   it('submits Data sheet rows to a writable endpoint', async () => {
