@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { DEFAULT_LOAD_RETRY_COUNT, DEFAULT_LOAD_TIMEOUT_MS, DEFAULT_SUBMIT_TIMEOUT_MS, loadCatalog, submitDataRows } from '../src/data-source.js';
+import { DEFAULT_LOAD_RETRY_COUNT, DEFAULT_LOAD_TIMEOUT_MS, DEFAULT_SUBMIT_TIMEOUT_MS, loadCatalog, loadDataRows, submitDataRows } from '../src/data-source.js';
 import { areAllMetricsSubmitted, buildCsv, buildDataRows, buildReportsFromDataRows, createEmptyReport, getCompletion, getDueMetricsForDate, getPendingFilledMetrics, getReportForDate, isMetricSubmitted, isReportSubmittedForCategory, makeReportKey, markReportMetricsSubmitted, markReportSubmittedForCategory, mergeReportFilledRows, reconcileSubmittedMetricsWithSheetReports, upsertReport } from '../src/storage.js';
 import { CHECKLIST, createCatalog, createChecklist, findEmployeeByFullName, getDashboardEmployees, getDashboardMetricOwners, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, getOrganizationHierarchy, groupMetricsByFrequency } from '../src/checklist.js';
 import { APP_VERSION } from '../src/version.js';
@@ -643,6 +643,42 @@ describe('daily report storage helpers', () => {
 
     assert.deepEqual(catalog.infoRows, []);
     assert.deepEqual(catalog.checklist, []);
+  });
+
+  it('loads catalog and Data rows through separate Apps Script modes', async () => {
+    const requestedUrls = [];
+    const catalog = await loadCatalog({
+      dataUrl: 'https://script.google.com/macros/s/example/exec',
+      fetchImpl: async (url) => {
+        requestedUrls.push(url);
+        return {
+          ok: true,
+          async json() {
+            return {
+              infoRows: [{ fullName: 'Анна Быстрая', role: 'HR' }],
+              metricSheets: [{ name: 'HR', rows: [{ frequency: 'ежедневно', metric: 'Проверка', role: 'HR' }] }],
+            };
+          },
+        };
+      },
+    });
+    const dataRows = await loadDataRows({
+      dataUrl: 'https://script.google.com/macros/s/example/exec',
+      fetchImpl: async (url) => {
+        requestedUrls.push(url);
+        return {
+          ok: true,
+          async json() {
+            return { dataRows: [{ date: '2026-10-08', owner: 'Анна Быстрая', metric: 'Проверка' }] };
+          },
+        };
+      },
+    });
+
+    assert.equal(catalog.infoRows[0].fullName, 'Анна Быстрая');
+    assert.equal(dataRows.length, 1);
+    assert.match(requestedUrls[0], /[?&]mode=catalog/);
+    assert.match(requestedUrls[1], /[?&]mode=data/);
   });
 
   it('loads catalog data from a configured JSON url', async () => {

@@ -1,4 +1,4 @@
-import { createCatalog } from './checklist.js?v=0.1.42';
+import { createCatalog } from './checklist.js?v=0.1.43';
 
 const DEFAULT_DATA_URL = './data/workbook.json';
 export const DEFAULT_LOAD_TIMEOUT_MS = 60_000;
@@ -18,7 +18,7 @@ export async function loadCatalog({
   }
 
   try {
-    const response = await fetchWithRetries(fetchImpl, dataUrl, { cache: 'no-store' }, {
+    const response = await fetchWithRetries(fetchImpl, getReadUrl(dataUrl, 'catalog'), { cache: 'no-store' }, {
       timeoutMs,
       retryCount,
       retryDelayMs,
@@ -28,6 +28,31 @@ export async function loadCatalog({
   } catch (error) {
     console.warn('Таблица не загрузилась. Демо-данные отключены, поэтому каталог останется пустым.', error);
     return createCatalog();
+  }
+}
+
+export async function loadDataRows({
+  dataUrl = globalThis.window?.PULT_DATA_URL ?? DEFAULT_DATA_URL,
+  fetchImpl = globalThis.fetch,
+  timeoutMs = DEFAULT_LOAD_TIMEOUT_MS,
+  retryCount = DEFAULT_LOAD_RETRY_COUNT,
+  retryDelayMs = DEFAULT_LOAD_RETRY_DELAY_MS,
+} = {}) {
+  if (!isWritableDataUrl(dataUrl) || typeof fetchImpl !== 'function') {
+    return [];
+  }
+
+  try {
+    const response = await fetchWithRetries(fetchImpl, getReadUrl(dataUrl, 'data'), { cache: 'no-store' }, {
+      timeoutMs,
+      retryCount,
+      retryDelayMs,
+    });
+    const payload = await response.json();
+    return Array.isArray(payload.dataRows) ? payload.dataRows : [];
+  } catch (error) {
+    console.warn('Лист Данные не загрузился. История отчётов появится после следующей успешной загрузки.', error);
+    return [];
   }
 }
 
@@ -50,6 +75,13 @@ export async function submitDataRows(dataRows, {
   }, timeoutMs);
 
   return { skipped: false };
+}
+
+function getReadUrl(dataUrl, mode) {
+  if (!isWritableDataUrl(dataUrl)) return dataUrl;
+  const url = new URL(dataUrl);
+  url.searchParams.set('mode', mode);
+  return url.toString();
 }
 
 function isWritableDataUrl(dataUrl) {
