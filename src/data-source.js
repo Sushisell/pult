@@ -1,4 +1,4 @@
-import { createCatalog } from './checklist.js?v=0.1.46';
+import { createCatalog } from './checklist.js?v=0.1.47';
 
 const DEFAULT_DATA_URL = './data/workbook.json';
 export const DEFAULT_LOAD_TIMEOUT_MS = 60_000;

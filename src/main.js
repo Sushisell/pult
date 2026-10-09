@@ -1,7 +1,7 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getDashboardEmployees as getDashboardTeam, getDashboardMetricOwners, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, getOrganizationHierarchy, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.46';
-import { loadCatalog, loadDataRows, submitDataRows } from './data-source.js?v=0.1.46';
-import { APP_VERSION } from './version.js?v=0.1.46';
-import { calculateDashboardIndexes, filterWeekendDashboardStates, getCompletionZone, getDashboardPeriods, getPerformanceColor, getProblemDashboardStates } from './dashboard-periods.js?v=0.1.46';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getDashboardEmployees as getDashboardTeam, getDashboardMetricOwners, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, getOrganizationHierarchy, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.47';
+import { loadCatalog, loadDataRows, submitDataRows } from './data-source.js?v=0.1.47';
+import { APP_VERSION } from './version.js?v=0.1.47';
+import { calculateDashboardIndexes, filterWeekendDashboardStates, getCompletionZone, getDashboardPeriods, getPerformanceColor, getProblemDashboardStates } from './dashboard-periods.js?v=0.1.47';
 import {
   buildCsv,
   buildDataRows,
@@ -24,7 +24,7 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.46';
+} from './storage.js?v=0.1.47';
 
 const COMMENT_MAX_LENGTH = 200;
 const URL_STATE_KEYS = ['date', 'department', 'owner', 'view'];
@@ -1819,6 +1819,27 @@ async function hydrateCatalog() {
   }
 
   hydrateSheetReports();
+}
+
+async function hydrateSheetReports() {
+  if (isHydratingSheetReports) return;
+  isHydratingSheetReports = true;
+
+  try {
+    const dataRows = await loadDataRows();
+    state.catalog = { ...state.catalog, dataRows };
+    state.sheetReports = buildReportsFromDataRows(dataRows, state.catalog.checklist, state.catalog.infoRows);
+    state.reports = reconcileSubmittedMetricsWithSheetReports(
+      mergeReports(state.localReports, state.sheetReports),
+      state.sheetReports,
+    );
+
+    const selectedOwner = state.hasSelectedIdentity && hasCatalogOwner(state.report?.owner, state.department) ? state.report.owner : '';
+    state.report = createEditableReport(state.date, selectedOwner);
+    render();
+  } finally {
+    isHydratingSheetReports = false;
+  }
 }
 
 function hideLoadingScreen() {
