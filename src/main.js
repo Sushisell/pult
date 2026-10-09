@@ -1,7 +1,7 @@
-import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getDashboardEmployees as getDashboardTeam, getDashboardMetricOwners, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, getOrganizationHierarchy, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.44';
-import { loadCatalog, loadDataRows, submitDataRows } from './data-source.js?v=0.1.44';
-import { APP_VERSION } from './version.js?v=0.1.44';
-import { calculateDashboardIndexes, filterWeekendDashboardStates, getCompletionZone, getDashboardPeriods, getPerformanceColor, getProblemDashboardStates } from './dashboard-periods.js?v=0.1.44';
+import { CATEGORIES, INFO_ROWS, CHECKLIST, STATUS, findEmployeeByFullName, getDashboardEmployees as getDashboardTeam, getDashboardMetricOwners, getEmployeesWithSharedRole, getManagedEmployees, getManagedOrganizationRows, getMetricsForRole, getOrganizationHierarchy, groupMetricsByFrequency, isRetailEmployee } from './checklist.js?v=0.1.45';
+import { loadCatalog, loadDataRows, submitDataRows } from './data-source.js?v=0.1.45';
+import { APP_VERSION } from './version.js?v=0.1.45';
+import { calculateDashboardIndexes, filterWeekendDashboardStates, getCompletionZone, getDashboardPeriods, getPerformanceColor, getProblemDashboardStates } from './dashboard-periods.js?v=0.1.45';
 import {
   buildCsv,
   buildDataRows,
@@ -24,12 +24,13 @@ import {
   upsertReport,
   makeReportKey,
   reconcileSubmittedMetricsWithSheetReports,
-} from './storage.js?v=0.1.44';
+} from './storage.js?v=0.1.45';
 
 const COMMENT_MAX_LENGTH = 200;
 const URL_STATE_KEYS = ['date', 'department', 'owner', 'view'];
 const SPARKLINE_UNKNOWN_COLOR = '#aeb4c2';
 let sparklineGradientSequence = 0;
+let isHydratingSheetReports = false;
 const managerTooltip = createManagerTooltip();
 
 const state = {
@@ -1818,6 +1819,27 @@ async function hydrateCatalog() {
     render();
   } finally {
     hideLoadingScreen();
+  }
+}
+
+async function hydrateSheetReports() {
+  if (isHydratingSheetReports) return;
+  isHydratingSheetReports = true;
+
+  try {
+    const dataRows = await loadDataRows();
+    state.catalog = { ...state.catalog, dataRows };
+    state.sheetReports = buildReportsFromDataRows(dataRows, state.catalog.checklist, state.catalog.infoRows);
+    state.reports = reconcileSubmittedMetricsWithSheetReports(
+      mergeReports(state.localReports, state.sheetReports),
+      state.sheetReports,
+    );
+
+    const selectedOwner = state.hasSelectedIdentity && hasCatalogOwner(state.report?.owner, state.department) ? state.report.owner : '';
+    state.report = createEditableReport(state.date, selectedOwner);
+    render();
+  } finally {
+    isHydratingSheetReports = false;
   }
 }
 
